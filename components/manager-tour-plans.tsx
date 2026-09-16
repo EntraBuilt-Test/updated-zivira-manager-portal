@@ -297,7 +297,7 @@ export function ManagerTourPlans() {
                         <span className="text-sm text-slate-900 dark:text-white font-semibold">{tp.locations.length} location(s)</span>
                         <div className="flex flex-wrap gap-1">
                           {tp.locations.slice(0, 3).map((loc, i) => (
-                            <span key={i} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px] border border-slate-200 dark:border-slate-800 dark:border-slate-700 truncate max-w-[120px]">{loc}</span>
+                            <span key={i} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px] border border-slate-200 dark:border-slate-800 dark:border-slate-700 truncate max-w-[120px]">{loc.town}</span>
                           ))}
                           {tp.locations.length > 3 && <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px] border border-slate-200 dark:border-slate-800 dark:border-slate-700">+{tp.locations.length - 3}</span>}
                         </div>
