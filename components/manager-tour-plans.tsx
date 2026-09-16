@@ -1,10 +1,10 @@
 "use client";
 import type { TourPlan } from "@zivira/types";
 import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, Map, MoreVert, Search, Download, History, Warning, Verified, CheckCircle, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { apiClient, type ManagerListItem } from "@/lib/api-client";
 
-const STATUS_COLORS: Record<string, { bg: string; color: string; icon: JSX.Element }> = {
+const STATUS_COLORS: Record<string, { bg: string; color: string; icon: ReactNode }> = {
   SUBMITTED: { bg: "bg-amber-100/70", color: "text-amber-800", icon: <Clock size={14} className="text-amber-700" /> },
   APPROVED:  { bg: "bg-emerald-50", color: "text-emerald-800", icon: <CheckCircle size={14} className="text-emerald-600" /> },
   REJECTED:  { bg: "bg-rose-50", color: "text-rose-800", icon: <Ban size={14} className="text-rose-600" /> },

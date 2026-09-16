@@ -1,16 +1,16 @@
 "use client";
 import type { LeaveApplication } from "@zivira/types";
 import { Check, RefreshCw, X, Calendar, Download, CheckCircle2, Shield, Search, Briefcase, Stethoscope, Home, UserCheck, Users, Eye, MoreVertical, PartyPopper } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { apiClient } from "@/lib/api-client";
 
-const STATUS_COLORS: Record<string, { bg: string; color: string; border: string; icon: JSX.Element; badgeBg: string }> = {
+const STATUS_COLORS: Record<string, { bg: string; color: string; border: string; icon: ReactNode; badgeBg: string }> = {
   PENDING:  { bg: "bg-amber-50/25", color: "text-amber-900", border: "border-l-4 border-l-amber-500", icon: <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />, badgeBg: "bg-amber-100 border-amber-300" },
   APPROVED: { bg: "", color: "text-emerald-800", border: "", icon: <Check size={12} className="stroke-[3]" />, badgeBg: "bg-emerald-100/80 border-emerald-200" },
   REJECTED: { bg: "", color: "text-rose-800", border: "", icon: <X size={12} className="stroke-[3]" />, badgeBg: "bg-rose-100/80 border-rose-200" }
 };
 
-const LEAVE_TYPE_ICONS: Record<string, { icon: JSX.Element; bg: string; text: string }> = {
+const LEAVE_TYPE_ICONS: Record<string, { icon: ReactNode; bg: string; text: string }> = {
   "Personal Work": { icon: <Briefcase size={12} />, bg: "bg-slate-100", text: "text-slate-800" },
   "Medical Appointment": { icon: <Stethoscope size={12} />, bg: "bg-blue-50 border border-blue-200/50", text: "text-blue-800" },
   "Casual Leave": { icon: <PartyPopper size={12} />, bg: "bg-purple-50 border border-purple-200/50", text: "text-purple-800" },

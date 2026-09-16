@@ -1,10 +1,10 @@
 "use client";
 import type { DcrExtended } from "@zivira/types";
 import { Check, RefreshCw, X, Search, Calendar, Download, AlertCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { apiClient } from "@/lib/api-client";
 
-const STATUS_COLORS: Record<string, { bg: string; color: string; border: string; icon: JSX.Element }> = {
+const STATUS_COLORS: Record<string, { bg: string; color: string; border: string; icon: ReactNode }> = {
   SUBMITTED: { bg: "bg-amber-50", color: "text-amber-700", border: "border-amber-200", icon: <AlertCircle size={12} className="text-amber-600" /> },
   MANAGER_APPROVED: { bg: "bg-emerald-50", color: "text-emerald-700", border: "border-emerald-200", icon: <Check size={12} className="text-emerald-600" /> },
   APPROVED: { bg: "bg-emerald-50", color: "text-emerald-700", border: "border-emerald-200", icon: <Check size={12} className="text-emerald-600" /> },
