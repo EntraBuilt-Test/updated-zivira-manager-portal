@@ -38,7 +38,7 @@ export function ManagerRepAnalysis() {
             </div>
             <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Rep Coverage & Joint Field Work</h1>
             <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-              Analyze how much time you're spending in the field with each representative versus total healthcare provider (HCP) coverage and solo physician visits.
+              Analyze how much time you&apos;re spending in the field with each representative versus total healthcare provider (HCP) coverage and solo physician visits.
             </p>
           </div>
 

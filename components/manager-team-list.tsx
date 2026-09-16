@@ -109,7 +109,7 @@ export function ManagerTeamList() {
             <div className="my-2 flex items-baseline gap-2">
               <span className="text-xl md:text-2xl font-extrabold text-emerald-900 dark:text-emerald-400 tracking-tight">{activeCount} Reps</span>
             </div>
-            <p className="text-[11px] text-emerald-700 dark:text-emerald-500 font-semibold">{activePercent}% Today's Check-in Logged</p>
+            <p className="text-[11px] text-emerald-700 dark:text-emerald-500 font-semibold">{activePercent}% Today&apos;s Check-in Logged</p>
           </div>
 
           <div className="bg-slate-50/70 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl p-4 border border-slate-200/70 dark:border-slate-800 transition-all flex flex-col justify-between">
@@ -269,7 +269,7 @@ export function ManagerTeamList() {
                 <th className="py-3 px-4 text-slate-500 dark:text-white bg-slate-50 dark:bg-slate-900">Employee Code</th>
                 <th className="py-3 px-4 text-slate-500 dark:text-white bg-slate-50 dark:bg-slate-900">Designation & Division</th>
                 <th className="py-3 px-4 text-slate-500 dark:text-white bg-slate-50 dark:bg-slate-900">Territory & HQ</th>
-                <th className="py-3 px-4 text-slate-500 dark:text-white bg-slate-50 dark:bg-slate-900">Today's Field Status</th>
+                <th className="py-3 px-4 text-slate-500 dark:text-white bg-slate-50 dark:bg-slate-900">Today&apos;s Field Status</th>
                 <th className="py-3 px-4 text-slate-500 dark:text-white bg-slate-50 dark:bg-slate-900">Actions</th>
               </tr>
             </thead>

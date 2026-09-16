@@ -106,7 +106,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="h-3 w-px bg-slate-300 dark:bg-slate-700"></div>
           <div className="text-slate-500 dark:text-slate-400">
-            Today's Calls Target: <span className="font-semibold text-slate-800 dark:text-slate-200">38 Doctors</span>
+            Today&apos;s Calls Target: <span className="font-semibold text-slate-800 dark:text-slate-200">38 Doctors</span>
           </div>
         </div>
 

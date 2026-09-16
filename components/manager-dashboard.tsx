@@ -33,7 +33,7 @@ export function ManagerDashboardPanel() {
             <span>REAL-TIME OPERATIONS</span>
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight mt-1">Dashboard</h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Your team's real-time field activity summary, call metrics, and daily approvals.</p>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Your team&apos;s real-time field activity summary, call metrics, and daily approvals.</p>
         </div>
         <div className="flex items-center space-x-2.5">
           <button onClick={load} disabled={loading} className="inline-flex items-center px-4 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition shadow-sm active:scale-95" type="button">
@@ -162,7 +162,7 @@ export function ManagerDashboardPanel() {
         </div>
         <div className="flex-1 overflow-hidden h-6 text-slate-600 dark:text-slate-300 flex items-center">
           <span className="truncate transition-opacity duration-300">
-            📍 <strong>Rahul Deshmukh</strong> visited <strong>Dr. R. Venkat (Cardiology)</strong> at Apollo Greams Rd, Chennai · <span className="text-slate-400">12 min ago</span> · Call feedback: "Sample given - Lipicure 20"
+            📍 <strong>Rahul Deshmukh</strong> visited <strong>Dr. R. Venkat (Cardiology)</strong> at Apollo Greams Rd, Chennai · <span className="text-slate-400">12 min ago</span> · Call feedback: &quot;Sample given - Lipicure 20&quot;
           </span>
         </div>
         <div className="flex items-center space-x-2 text-[11px] text-slate-400">
@@ -214,7 +214,7 @@ export function ManagerDashboardPanel() {
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-4 min-w-[100px]">CODE</th>
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-4 min-w-[140px]">TERRITORY</th>
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-4 min-w-[130px]">STATUS & FIELD STAGE</th>
-                <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-4 min-w-[160px]">TODAY'S VISITS</th>
+                <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-4 min-w-[160px]">TODAY&apos;S VISITS</th>
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-4 text-right min-w-[160px]">ACTIONS</th>
               </tr>
             </thead>
