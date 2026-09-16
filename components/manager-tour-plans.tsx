@@ -1,6 +1,6 @@
 "use client";
 import type { TourPlan } from "@zivira/types";
-import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, Map, MoreVert, Search, Download, History, Warning, Verified, CheckCircle, Clock } from "lucide-react";
+import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, Map, MoreVertical, Search, Download, History, AlertTriangle, Verified, CheckCircle, Clock } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
 import { apiClient, type ManagerListItem } from "@/lib/api-client";
 
@@ -345,7 +345,7 @@ export function ManagerTourPlans() {
                           </>
                         )}
                         <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors" title="More Options" type="button">
-                          <MoreVert size={16} />
+                          <MoreVertical size={16} />
                         </button>
                       </div>
                     </td>
@@ -429,7 +429,7 @@ export function ManagerTourPlans() {
                     ))}
                   </select>
                   {managers.length === 0 && (
-                    <p className="text-[10px] text-amber-600 flex items-center gap-1 mt-1"><Warning size={12} /> No other active managers found in this tenant yet.</p>
+                    <p className="text-[10px] text-amber-600 flex items-center gap-1 mt-1"><AlertTriangle size={12} /> No other active managers found in this tenant yet.</p>
                   )}
                 </div>
               )}
