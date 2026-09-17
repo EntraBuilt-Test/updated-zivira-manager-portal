@@ -5,6 +5,26 @@ import { AlertTriangle, Check, IndianRupee, RefreshCw, X, Shield, Bell, Download
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 
+// Real, fixed set of selectable cycles (current month back 5 months), in the
+// "YYYY-MM" shape the backend's ?month= query param expects.
+function buildMonthOptions(): { value: string; label: string }[] {
+  const out: { value: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = i === 0 ? `Current Cycle (${d.toLocaleString("en-US", { month: "long", year: "numeric" })})` : d.toLocaleString("en-US", { month: "long", year: "numeric" });
+    out.push({ value, label });
+  }
+  return out;
+}
+const MONTH_OPTIONS = buildMonthOptions();
+
+function csvCell(v: unknown): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 export function ManagerCompliance() {
   const [rows, setRows] = useState<EmployeeComplianceRow[]>([]);
   const [summary, setSummary] = useState<ComplianceSummary | null>(null);
@@ -15,11 +35,14 @@ export function ManagerCompliance() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [month, setMonth] = useState(MONTH_OPTIONS[0].value);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [notifyMessage, setNotifyMessage] = useState<string | null>(null);
 
   async function load() {
     setLoading(true); setError("");
     try {
-      const [c, p] = await Promise.all([apiClient.compliance(), apiClient.payroll()]);
+      const [c, p] = await Promise.all([apiClient.compliance(month), apiClient.payroll(month)]);
       setRows(c.data);
       setSummary(c.summary);
       setPayrollRows(p.data);
@@ -27,7 +50,49 @@ export function ManagerCompliance() {
     } catch (e) { setError(e instanceof Error ? e.message : "Load failed"); }
     finally { setLoading(false); }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredRows = rows.filter(r =>
+    !searchTerm ||
+    (r.employeeName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.employeeCode.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  function exportCsv() {
+    const headers = ["Employee Name", "Employee Code", "Role", "Submitted Today", "Missed This Week", "Missed This Month", "Compliance %", "Missed Last 30 Days", "Warning Level", "Chronic Defaulter", "Salary Hold"];
+    const lines = [headers.join(",")];
+    for (const r of filteredRows) {
+      lines.push([
+        csvCell(r.employeeName ?? ""),
+        csvCell(r.employeeCode),
+        csvCell(r.role ?? ""),
+        csvCell(r.submittedToday ? "Yes" : "No"),
+        csvCell(r.missedThisWeek),
+        csvCell(r.missedThisMonth),
+        csvCell(r.compliancePercent),
+        csvCell(r.missedLast30Days),
+        csvCell(r.warningLevel),
+        csvCell(r.chronicDefaulter ? "Yes" : "No"),
+        csvCell(r.salaryHold ? "Yes" : "No")
+      ].join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `team-compliance-${month}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function notifyDefaulters() {
+    // No manager-accessible endpoint exists in apiClient to create/broadcast
+    // a Notice (apiClient only exposes a read-only `notices()`), so this is
+    // honest feedback rather than a fabricated "sent" state.
+    setNotifyMessage("Broadcast messaging isn't available from this page yet.");
+  }
 
   async function approve(id: string) {
     setActingId(id); setError("");
@@ -100,11 +165,11 @@ export function ManagerCompliance() {
         </div>
         <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
           <div className="relative">
-            <select className="pl-3 pr-8 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-300 shadow-sm focus:ring-teal-500 focus:border-teal-500 appearance-none">
-              <option>Current Cycle</option>
+            <select value={month} onChange={e => setMonth(e.target.value)} className="pl-3 pr-8 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-300 shadow-sm focus:ring-teal-500 focus:border-teal-500 appearance-none">
+              {MONTH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-          <button className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+          <button onClick={exportCsv} disabled={filteredRows.length === 0} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition disabled:opacity-50">
             <Download size={14} className="text-slate-500 dark:text-slate-400" />
             <span>Export CSV</span>
           </button>
@@ -112,12 +177,19 @@ export function ManagerCompliance() {
             <RefreshCw size={14} className={loading ? "animate-spin text-slate-600 dark:text-slate-400" : "text-slate-600 dark:text-slate-400"} />
             <span>Refresh</span>
           </button>
-          <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-lg shadow-sm transition">
+          <button onClick={notifyDefaulters} disabled={filteredRows.filter(r => r.chronicDefaulter).length === 0} className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-lg shadow-sm transition disabled:opacity-50">
             <Bell size={14} />
-            <span>Notify All Defaulters</span>
+            <span>Notify All Defaulters ({filteredRows.filter(r => r.chronicDefaulter).length})</span>
           </button>
         </div>
       </section>
+
+      {notifyMessage && (
+        <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center justify-between gap-3">
+          <span>{notifyMessage}</span>
+          <button onClick={() => setNotifyMessage(null)} className="text-amber-500 hover:text-amber-700 shrink-0"><X size={14} /></button>
+        </p>
+      )}
 
       {summary && (
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
@@ -203,13 +275,13 @@ export function ManagerCompliance() {
       {/* Compliance Filters */}
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/90 rounded-xl p-3 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="flex items-center gap-1 overflow-x-auto pb-1 lg:pb-0">
-          <button className="px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200 shrink-0">
-            All MRs ({rows.length})
+          <button onClick={() => setSearchTerm("")} title="Clear filters" className="px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200 shrink-0">
+            All MRs ({filteredRows.length})
           </button>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
           <div className="relative min-w-[220px]">
-            <input className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-all" placeholder="Search MR name, code..." type="text" />
+            <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-all" placeholder="Search MR name, code..." type="text" />
             <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
               <Filter size={14} />
             </div>
@@ -236,7 +308,7 @@ export function ManagerCompliance() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
-              {rows.map(r => {
+              {filteredRows.map(r => {
                 const wc = r.warningLevel === 'HIGH' ? { bg: 'bg-rose-50 text-rose-700 border-rose-200' } :
                            r.warningLevel === 'MEDIUM' ? { bg: 'bg-amber-50 text-amber-700 border-amber-200' } :
                            r.warningLevel === 'LOW' ? { bg: 'bg-yellow-50 text-yellow-700 border-yellow-200' } : { bg: 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800' };
@@ -312,7 +384,7 @@ export function ManagerCompliance() {
                   </tr>
                 );
               })}
-              {!loading && rows.length === 0 && (
+              {!loading && filteredRows.length === 0 && (
                 <tr><td colSpan={10} className="text-center text-slate-500 dark:text-slate-400 py-8">No team members found</td></tr>
               )}
             </tbody>

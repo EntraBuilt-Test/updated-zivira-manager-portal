@@ -13,6 +13,12 @@ const STATUS_COLORS: Record<string, { bg: string; color: string; icon: ReactNode
 };
 
 type ActionKind = "void" | "reassign" | "reject" | "revoke";
+type TabKind = "all" | "pending";
+
+function csvCell(v: unknown): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
 
 export function ManagerTourPlans() {
   const [crossTeam, setCrossTeam] = useState(false);
@@ -27,6 +33,12 @@ export function ManagerTourPlans() {
   const [targetManager, setTargetManager] = useState("");
   const [revokePickerOpen, setRevokePickerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [tab, setTab] = useState<TabKind>("pending");
+  const [monthFilter, setMonthFilter] = useState("");
+  const [repFilter, setRepFilter] = useState("");
+  const [batchResult, setBatchResult] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [detailsTarget, setDetailsTarget] = useState<TourPlan | null>(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -51,6 +63,58 @@ export function ManagerTourPlans() {
     finally { setActing(false); }
   }
 
+  async function batchApprove(ids: string[]) {
+    if (ids.length === 0) return;
+    setActing(true); setError(""); setBatchResult(null);
+    try {
+      const results = await Promise.allSettled(ids.map(id => apiClient.approveTourPlan(id)));
+      const succeeded = results.filter(r => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      setBatchResult(failed === 0
+        ? `Approved ${succeeded} of ${ids.length} plan(s).`
+        : `Approved ${succeeded} of ${ids.length} plan(s); ${failed} failed.`);
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Batch approve failed"); }
+    finally { setActing(false); }
+  }
+
+  async function copyTpId(tpId: string) {
+    try {
+      await navigator.clipboard.writeText(tpId);
+      setCopiedId(tpId);
+      setTimeout(() => setCopiedId(prev => (prev === tpId ? null : prev)), 1500);
+    } catch { /* clipboard not available — nothing to fall back to safely */ }
+  }
+
+  function exportCsv(rowsToExport: TourPlan[]) {
+    const headers = ["TP ID", "Employee Name", "Employee Code", "Month", "Locations", "Assigned Manager", "Status", "Reason / Notes"];
+    const lines = [headers.join(",")];
+    for (const tp of rowsToExport) {
+      const notes = tp.status === "VOIDED"
+        ? `Voided by ${tp.voidedByName ?? tp.voidedBy}: ${tp.voidReason ?? ""}${tp.reassignedToTpId ? ` -> ${tp.reassignedToTpId}` : ""}`
+        : tp.parentTpId ? `Reassigned from ${tp.parentTpId}` : "";
+      lines.push([
+        csvCell(tp.tpId),
+        csvCell(tp.employeeName ?? ""),
+        csvCell(tp.employeeCode),
+        csvCell(tp.month),
+        csvCell(tp.locations.map(l => l.town).join("; ")),
+        csvCell(tp.assignedManagerName ?? tp.assignedManager),
+        csvCell(tp.status),
+        csvCell(notes)
+      ].join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tour-plans.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function runAction() {
     if (!actionTarget) return;
     setActing(true); setError("");
@@ -64,16 +128,31 @@ export function ManagerTourPlans() {
     finally { setActing(false); }
   }
 
-  const filteredTps = tps.filter(tp => 
-    !searchTerm || 
-    tp.tpId.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (tp.employeeName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase())
+  // Real, fixed enums driven off the loaded data — not hardcoded lists.
+  const monthOptions = Array.from(new Set(tps.map(tp => tp.month))).sort();
+  const repOptions = Array.from(
+    new Map(tps.map(tp => [tp.employeeCode, tp.employeeName ?? tp.employeeCode] as const)).entries()
+  ).sort((a, b) => a[1].localeCompare(b[1]));
+
+  const searchedTps = tps.filter(tp =>
+    (!searchTerm ||
+      tp.tpId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (tp.employeeName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (!monthFilter || tp.month === monthFilter) &&
+    (!repFilter || tp.employeeCode === repFilter)
   );
+
+  const allTabCount = searchedTps.length;
+  const pendingTabCount = searchedTps.filter(tp => tp.status === "SUBMITTED").length;
+  const filteredTps = tab === "pending" ? searchedTps.filter(tp => tp.status === "SUBMITTED") : searchedTps;
 
   const pendingCount = tps.filter(tp => tp.status === "SUBMITTED").length;
   const approvedCount = tps.filter(tp => tp.status === "APPROVED").length;
   const voidedCount = tps.filter(tp => tp.status === "VOIDED").length;
+
+  const isMine = (tp: TourPlan) => !myEmployeeCode || tp.assignedManager === myEmployeeCode;
+  const visiblePendingIds = filteredTps.filter(tp => tp.status === "SUBMITTED" && isMine(tp)).map(tp => tp.tpId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,14 +187,20 @@ export function ManagerTourPlans() {
           <button onClick={load} className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm border border-slate-200 dark:border-slate-800" title="Refresh records" type="button">
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-sm active:scale-[0.99] text-sm font-semibold disabled:opacity-50" type="button" disabled={acting}>
+          <button onClick={() => batchApprove(visiblePendingIds)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-sm active:scale-[0.99] text-sm font-semibold disabled:opacity-50" type="button" disabled={acting || visiblePendingIds.length === 0}>
             <Check size={16} />
-            <span>Batch Approve Plans ({pendingCount})</span>
+            <span>Batch Approve Plans ({visiblePendingIds.length})</span>
           </button>
         </div>
       </div>
 
       {error && <p className="text-sm font-medium text-rose-600 bg-rose-50 p-3 rounded-lg border border-rose-200">{error}</p>}
+      {batchResult && (
+        <p className="text-sm font-medium text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-200 flex items-center justify-between gap-3">
+          <span>{batchResult}</span>
+          <button onClick={() => setBatchResult(null)} className="text-emerald-500 hover:text-emerald-700 shrink-0" type="button"><X size={14} /></button>
+        </p>
+      )}
 
       {/* 2. Operational KPI Cards Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -203,12 +288,24 @@ export function ManagerTourPlans() {
       <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
         {/* Filter Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-lg bg-slate-50 dark:bg-slate-900 dark:bg-slate-800">
-          <button className="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:hover:text-slate-200 transition-colors" type="button">
-            All Plans ({tps.length})
+          <button
+            onClick={() => setTab("all")}
+            className={tab === "all"
+              ? "px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 dark:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white shadow-xs flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 dark:border-slate-600"
+              : "px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:hover:text-slate-200 transition-colors"}
+            type="button"
+          >
+            All Plans ({allTabCount})
           </button>
-          <button className="px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 dark:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white shadow-xs flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 dark:border-slate-600" type="button">
+          <button
+            onClick={() => setTab("pending")}
+            className={tab === "pending"
+              ? "px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 dark:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white shadow-xs flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 dark:border-slate-600"
+              : "px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:hover:text-slate-200 transition-colors flex items-center gap-1.5"}
+            type="button"
+          >
             <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span>Pending Review ({pendingCount})</span>
+            <span>Pending Review ({pendingTabCount})</span>
           </button>
         </div>
         
@@ -219,15 +316,17 @@ export function ManagerTourPlans() {
             <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors" placeholder="Search TP ID, Rep name, MR code..." type="text"/>
           </div>
           
-          <select className="pl-3 pr-8 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-200 text-sm font-medium outline-none cursor-pointer">
-            <option>All Months</option>
+          <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="pl-3 pr-8 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-200 text-sm font-medium outline-none cursor-pointer">
+            <option value="">All Months</option>
+            {monthOptions.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
-          
-          <select className="pl-3 pr-8 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-200 text-sm font-medium outline-none cursor-pointer">
-            <option>All Reps</option>
+
+          <select value={repFilter} onChange={e => setRepFilter(e.target.value)} className="pl-3 pr-8 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-200 text-sm font-medium outline-none cursor-pointer">
+            <option value="">All Reps</option>
+            {repOptions.map(([code, name]) => <option key={code} value={code}>{name} ({code})</option>)}
           </select>
-          
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-200 transition-colors text-sm font-medium" type="button">
+
+          <button onClick={() => exportCsv(filteredTps)} disabled={filteredTps.length === 0} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-200 transition-colors text-sm font-medium disabled:opacity-50" type="button">
             <Download size={14} />
             <span>Export</span>
           </button>
@@ -268,8 +367,8 @@ export function ManagerTourPlans() {
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[11px] font-semibold text-slate-900 dark:text-white dark:text-slate-200 border border-slate-200 dark:border-slate-800 dark:border-slate-700">
                         <span>{tp.tpId}</span>
-                        <button className="text-slate-400 hover:text-emerald-600 transition-colors" title="Copy TP ID" type="button">
-                          <Copy size={12} />
+                        <button onClick={() => copyTpId(tp.tpId)} className="text-slate-400 hover:text-emerald-600 transition-colors" title={copiedId === tp.tpId ? "Copied!" : "Copy TP ID"} type="button">
+                          <Copy size={12} className={copiedId === tp.tpId ? "text-emerald-600" : ""} />
                         </button>
                       </div>
                     </td>
@@ -344,7 +443,7 @@ export function ManagerTourPlans() {
                             </button>
                           </>
                         )}
-                        <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors" title="More Options" type="button">
+                        <button onClick={() => setDetailsTarget(tp)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors" title="More Options" type="button">
                           <MoreVertical size={16} />
                         </button>
                       </div>
@@ -366,6 +465,57 @@ export function ManagerTourPlans() {
           </table>
         </div>
       </div>
+
+      {/* Tour Plan Details Modal (opened from row "More Options") */}
+      {detailsTarget && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{detailsTarget.tpId}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{detailsTarget.employeeName ?? detailsTarget.employeeCode} — {detailsTarget.month}</p>
+              </div>
+              <button onClick={() => setDetailsTarget(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" type="button">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500 dark:text-slate-400">Status</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{detailsTarget.status}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500 dark:text-slate-400">Assigned Manager</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{detailsTarget.assignedManagerName ?? detailsTarget.assignedManager}</span>
+              </div>
+              {detailsTarget.parentTpId && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500 dark:text-slate-400">Reassigned from</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{detailsTarget.parentTpId}</span>
+                </div>
+              )}
+              {detailsTarget.status === "VOIDED" && (
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Voided by {detailsTarget.voidedByName ?? detailsTarget.voidedBy}</p>
+                  <p className="text-sm text-slate-800 dark:text-slate-200 mt-1">{detailsTarget.voidReason}</p>
+                  {detailsTarget.reassignedToTpId && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">→ Reassigned to {detailsTarget.reassignedToTpId}</p>}
+                </div>
+              )}
+              <div>
+                <p className="text-slate-500 dark:text-slate-400 mb-1.5">Target Locations ({detailsTarget.locations.length})</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {detailsTarget.locations.map((loc, i) => (
+                    <span key={i} className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs border border-slate-200 dark:border-slate-700">{loc.town}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button onClick={() => setDetailsTarget(null)} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition" type="button">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Revoke Picker Modal */}
       {revokePickerOpen && (
