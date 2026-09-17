@@ -1,10 +1,34 @@
 "use client";
-import type { ManagerDashboard } from "@zivira/types";
+import type { Employee, ManagerDashboard } from "@zivira/types";
 import { RefreshCw, Users, Search, Download } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
+// No shared CSV helper exists in this repo (lib/download-csv.ts) — build a
+// small self-contained CSV export, mirroring the exact fields shown in the
+// team table below, with no new dependency.
+function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const escape = (value: string | number) => {
+    const s = String(value ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers.join(","), ...rows.map(row => headers.map(h => escape(row[h])).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function ManagerDashboardPanel() {
+  const router = useRouter();
   const [data, setData] = useState<ManagerDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,6 +45,23 @@ export function ManagerDashboardPanel() {
     const timer = window.setInterval(() => { void load(); }, 60000);
     return () => window.clearInterval(timer);
   }, []);
+
+  // Item 1a — export a real CSV of the team roster this dashboard already
+  // loaded (data.team), using exactly the fields rendered in the table
+  // below: no per-employee DCR array is fetched by this dashboard (that
+  // lives in ManagerDcrList / apiClient.dcrs()), so the roster is the
+  // closest real, already-loaded data to export as a "DCR Report".
+  function exportDcrReport() {
+    const team = data?.team ?? [];
+    const rows = team.map((emp: Employee) => ({
+      employeeCode: emp.employeeCode,
+      name: emp.name,
+      designation: emp.designation,
+      territory: emp.territory,
+      status: emp.status,
+    }));
+    downloadCsv(`dcr-report-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  }
 
   return (
     <>
@@ -40,7 +81,7 @@ export function ManagerDashboardPanel() {
             <RefreshCw size={14} className={`mr-2 text-slate-500 dark:text-slate-400 transition-transform ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
-          <button className="inline-flex items-center px-4 py-2 text-xs font-semibold rounded-xl text-white bg-brand-600 hover:bg-brand-700 dark:bg-brand-600 dark:hover:bg-brand-500 transition shadow-sm shadow-brand-500/25 active:scale-95" type="button">
+          <button onClick={exportDcrReport} disabled={!data?.team?.length} className="inline-flex items-center px-4 py-2 text-xs font-semibold rounded-xl text-white bg-brand-600 hover:bg-brand-700 dark:bg-brand-600 dark:hover:bg-brand-500 transition shadow-sm shadow-brand-500/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" type="button">
             <Download size={14} className="mr-2" />
             Export DCR Report
           </button>
@@ -166,9 +207,6 @@ export function ManagerDashboardPanel() {
           </span>
         </div>
         <div className="flex items-center space-x-2 text-[11px] text-slate-400">
-          <button className="hover:text-slate-700 dark:hover:text-slate-200 p-1">‹</button>
-          <button className="hover:text-slate-700 dark:hover:text-slate-200 p-1">›</button>
-          <span className="h-3 w-px bg-slate-200 dark:bg-slate-700"></span>
           <span className="text-brand-600 dark:text-brand-400 font-semibold cursor-pointer hover:underline">View Live GPS Map</span>
         </div>
       </section>
@@ -267,7 +305,7 @@ export function ManagerDashboardPanel() {
                       <button className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="View Rep Details">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                       </button>
-                      <button className="px-2.5 py-1 text-xs font-semibold bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300 dark:hover:bg-brand-900 border border-brand-200 dark:border-brand-800 rounded-lg transition">
+                      <button onClick={() => router.push("/manager/dcrs")} title={`Review ${emp.name}'s DCRs on the Team DCRs page`} className="px-2.5 py-1 text-xs font-semibold bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300 dark:hover:bg-brand-900 border border-brand-200 dark:border-brand-800 rounded-lg transition">
                         Approve DCR
                       </button>
                     </div>

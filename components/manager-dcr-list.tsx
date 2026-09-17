@@ -36,6 +36,29 @@ function feedbackTitle(dcr: DcrExtended) {
   return parts.join("\n") || "No additional visit details captured";
 }
 
+// No shared CSV helper exists in this repo (lib/download-csv.ts) — build a
+// small self-contained CSV export with no new dependency.
+function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const escape = (value: string | number) => {
+    const s = String(value ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers.join(","), ...rows.map(row => headers.map(h => escape(row[h])).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+const PAGE_SIZE = 20;
+
 export function ManagerDcrList() {
   const [dcrs, setDcrs] = useState<DcrExtended[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +66,11 @@ export function ManagerDcrList() {
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [acting, setActing] = useState<string | null>(null);
+  const [batchApproving, setBatchApproving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sessionFilter, setSessionFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [page, setPage] = useState(0);
 
   async function load() {
     setLoading(true); setError("");
@@ -74,6 +102,62 @@ export function ManagerDcrList() {
   const pendingCount = dcrs.filter(d => d.status === "SUBMITTED").length;
   const approvedCount = dcrs.filter(d => d.status === "MANAGER_APPROVED" || d.status === "APPROVED").length;
 
+  // Item 2(d)/(e) — real search + session + status filtering, applied
+  // consistently to the table, the Export button, pagination, and the
+  // Batch Approve action below (so "what's shown" and "what's exported /
+  // batch-approved" always agree).
+  const filteredDcrs = dcrs.filter((dcr) => {
+    if (sessionFilter !== "ALL" && dcr.callSession !== sessionFilter) return false;
+    if (statusFilter !== "ALL" && dcr.status !== statusFilter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const doctorName = getDoctorName(dcr.doctorId).toLowerCase();
+      const products = dcr.productsDetailed ?? [];
+      const matches =
+        dcr.employeeCode.toLowerCase().includes(q) ||
+        (dcr.employeeName ?? "").toLowerCase().includes(q) ||
+        doctorName.includes(q) ||
+        products.some(p => p.toLowerCase().includes(q));
+      if (!matches) return false;
+    }
+    return true;
+  });
+
+  const maxPage = Math.max(0, Math.ceil(filteredDcrs.length / PAGE_SIZE) - 1);
+  const effectivePage = Math.min(page, maxPage);
+  const pagedDcrs = filteredDcrs.slice(effectivePage * PAGE_SIZE, (effectivePage + 1) * PAGE_SIZE);
+  const visiblePendingIds = filteredDcrs.filter(d => d.status === "SUBMITTED").map(d => d.id);
+
+  function exportCsv() {
+    const rows = filteredDcrs.map(dcr => ({
+      employeeCode: dcr.employeeCode,
+      employeeName: dcr.employeeName ?? "",
+      doctor: getDoctorName(dcr.doctorId) || "",
+      visitDate: dcr.visitDate,
+      callSession: dcr.callSession ?? "",
+      callTime: dcr.callTime ?? "",
+      punchInTime: dcr.punchInTime ?? "",
+      punchOutTime: dcr.punchOutTime ?? "",
+      products: (dcr.productsDetailed ?? []).join("; "),
+      status: dcr.status,
+    }));
+    downloadCsv(`team-dcrs-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  }
+
+  async function batchApprovePending() {
+    if (visiblePendingIds.length === 0) return;
+    setBatchApproving(true); setError("");
+    try {
+      const results = await Promise.allSettled(visiblePendingIds.map(id => apiClient.approveDcr(id)));
+      const succeeded = results.filter(r => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      if (failed > 0) setError(`Batch approve: ${succeeded} succeeded, ${failed} failed.`);
+      await load();
+    } finally {
+      setBatchApproving(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Header & Primary Controls Section */}
@@ -94,12 +178,16 @@ export function ManagerDcrList() {
 
         {/* Action Buttons Strip */}
         <div className="flex items-center flex-wrap gap-2.5">
-          <button className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" type="button">
+          {/* This dashboard has no date-filtering data or state (apiClient.dcrs()
+              takes no date param and nothing here is filtered by visitDate), so
+              this label is left as a non-interactive date display rather than
+              wired to fake filtering. */}
+          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 dark:text-slate-200 shadow-sm">
             <Calendar size={14} className="text-slate-400" />
             <span>Today ({new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})</span>
-          </button>
+          </div>
 
-          <button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" type="button">
+          <button onClick={exportCsv} disabled={filteredDcrs.length === 0} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" type="button">
             <Download size={14} className="text-slate-400" />
             <span>Export</span>
           </button>
@@ -109,9 +197,9 @@ export function ManagerDcrList() {
             <span>Refresh</span>
           </button>
 
-          <button className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white shadow-sm shadow-emerald-600/20 transition-all active:scale-[0.98]" type="button">
+          <button onClick={batchApprovePending} disabled={batchApproving || visiblePendingIds.length === 0} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white shadow-sm shadow-emerald-600/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed" type="button">
             <Check size={14} />
-            <span>Batch Approve Pending</span>
+            <span>{batchApproving ? "Approving…" : visiblePendingIds.length === 0 ? "0 Pending" : `Batch Approve Pending (${visiblePendingIds.length})`}</span>
           </button>
         </div>
       </div>
@@ -194,20 +282,20 @@ export function ManagerDcrList() {
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
             <Search size={14} />
           </div>
-          <input className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 text-slate-800 dark:text-slate-200 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-colors placeholder:text-slate-400" placeholder="Search Doctor, Employee Code, or Brand..." type="text" />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 dark:border-slate-700 text-slate-800 dark:text-slate-200 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-colors placeholder:text-slate-400" placeholder="Search Doctor, Employee Code, or Brand..." type="text" />
         </div>
         <div className="flex items-center flex-wrap gap-2 text-xs">
-          <select className="py-1.5 pl-2.5 pr-7 text-xs border border-slate-200 dark:border-slate-800 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 dark:text-slate-200 focus:ring-1 focus:ring-brand-500 font-medium">
+          <select value={sessionFilter} onChange={e => { setSessionFilter(e.target.value); setPage(0); }} className="py-1.5 pl-2.5 pr-7 text-xs border border-slate-200 dark:border-slate-800 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 dark:text-slate-200 focus:ring-1 focus:ring-brand-500 font-medium">
             <option value="ALL">All Sessions</option>
             <option value="AFTERNOON">Afternoon Only</option>
             <option value="EVENING">Evening Only</option>
           </select>
-          <select className="py-1.5 pl-2.5 pr-7 text-xs border border-slate-200 dark:border-slate-800 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 dark:text-slate-200 focus:ring-1 focus:ring-brand-500 font-medium">
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }} className="py-1.5 pl-2.5 pr-7 text-xs border border-slate-200 dark:border-slate-800 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 dark:text-slate-200 focus:ring-1 focus:ring-brand-500 font-medium">
             <option value="ALL">All Statuses</option>
-            <option value="PENDING APPROVAL">Pending Review</option>
-            <option value="MANAGER APPROVED">Manager Approved</option>
+            <option value="SUBMITTED">Pending Review</option>
+            <option value="MANAGER_APPROVED">Manager Approved</option>
           </select>
-          <button className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors" title="Clear Filters" type="button">
+          <button onClick={() => { setSearch(""); setSessionFilter("ALL"); setStatusFilter("ALL"); setPage(0); }} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors" title="Clear Filters" type="button">
             <X size={16} />
           </button>
         </div>
@@ -237,13 +325,13 @@ export function ManagerDcrList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs text-slate-700 dark:text-slate-300 dark:text-slate-200">
-              {dcrs.map((dcr, i) => {
+              {pagedDcrs.map((dcr, i) => {
                 const sc = STATUS_COLORS[dcr.status] ?? STATUS_COLORS["DRAFT"];
                 const canAct = dcr.status === "SUBMITTED";
                 return (
                   <tr key={dcr.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/80 dark:hover:bg-slate-800/40 transition-colors group">
                     <td className="py-3.5 px-3 text-center"><input className="rounded border-slate-300 dark:border-slate-700 text-brand-600 focus:ring-brand-500" type="checkbox" /></td>
-                    <td className="py-3.5 px-2 text-center text-slate-400 font-mono text-[11px] tabular-nums">{i + 1}</td>
+                    <td className="py-3.5 px-2 text-center text-slate-400 font-mono text-[11px] tabular-nums">{effectivePage * PAGE_SIZE + i + 1}</td>
                     <td className="py-3.5 px-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-md bg-emerald-100 text-brand-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold text-[10px] flex items-center justify-center">
@@ -342,7 +430,7 @@ export function ManagerDcrList() {
                   </tr>
                 );
               })}
-              {!loading && dcrs.length === 0 && (
+              {!loading && filteredDcrs.length === 0 && (
                 <tr>
                   <td colSpan={15} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center">
@@ -359,19 +447,19 @@ export function ManagerDcrList() {
         {/* Table Footer Pagination & Summary Information */}
         <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900/70 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-2">
-            <span>Showing <strong className="text-slate-700 dark:text-slate-300">1 - {dcrs.length}</strong> of <strong className="text-slate-700 dark:text-slate-300">{dcrs.length}</strong> DCRs</span>
+            <span>Showing <strong className="text-slate-700 dark:text-slate-300">{filteredDcrs.length === 0 ? 0 : effectivePage * PAGE_SIZE + 1} - {Math.min((effectivePage + 1) * PAGE_SIZE, filteredDcrs.length)}</strong> of <strong className="text-slate-700 dark:text-slate-300">{filteredDcrs.length}</strong> DCRs</span>
             <span className="text-slate-300 dark:text-slate-700">|</span>
             <span className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/50 font-medium">
               <Check size={10} /> 100% Rep Tour Compliance
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-[11px]">Page 1 of 1</span>
+            <span className="text-slate-400 text-[11px]">Page {filteredDcrs.length === 0 ? 0 : effectivePage + 1} of {maxPage + 1}</span>
             <div className="inline-flex rounded-md shadow-xs">
-              <button className="px-2.5 py-1 text-xs font-semibold rounded-l-md border border-slate-200 dark:border-slate-800 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed" disabled type="button">
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={effectivePage === 0} className="px-2.5 py-1 text-xs font-semibold rounded-l-md border border-slate-200 dark:border-slate-800 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 text-slate-500 dark:text-slate-300 disabled:text-slate-300 dark:disabled:text-slate-600 disabled:cursor-not-allowed hover:enabled:bg-slate-50 dark:hover:enabled:bg-slate-800 transition-colors" type="button">
                 &lt;
               </button>
-              <button className="px-2.5 py-1 text-xs font-semibold rounded-r-md border-y border-r border-slate-200 dark:border-slate-800 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed" disabled type="button">
+              <button onClick={() => setPage(p => Math.min(maxPage, p + 1))} disabled={effectivePage >= maxPage} className="px-2.5 py-1 text-xs font-semibold rounded-r-md border-y border-r border-slate-200 dark:border-slate-800 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 text-slate-500 dark:text-slate-300 disabled:text-slate-300 dark:disabled:text-slate-600 disabled:cursor-not-allowed hover:enabled:bg-slate-50 dark:hover:enabled:bg-slate-800 transition-colors" type="button">
                 &gt;
               </button>
             </div>
