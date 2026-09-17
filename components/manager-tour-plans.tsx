@@ -1,6 +1,6 @@
 "use client";
 import type { TourPlan } from "@zivira/types";
-import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, Map, MoreVertical, Search, Download, History, AlertTriangle, Verified, CheckCircle, Clock } from "lucide-react";
+import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, MoreVertical, Search, Download, History, AlertTriangle, Verified, CheckCircle, Clock } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
 import { apiClient, type ManagerListItem } from "@/lib/api-client";
 
@@ -131,7 +131,7 @@ export function ManagerTourPlans() {
   // Real, fixed enums driven off the loaded data — not hardcoded lists.
   const monthOptions = Array.from(new Set(tps.map(tp => tp.month))).sort();
   const repOptions = Array.from(
-    new Map(tps.map(tp => [tp.employeeCode, tp.employeeName ?? tp.employeeCode] as const)).entries()
+    new Map<string, string>(tps.map(tp => [tp.employeeCode, tp.employeeName ?? tp.employeeCode] as const)).entries()
   ).sort((a, b) => a[1].localeCompare(b[1]));
 
   const searchedTps = tps.filter(tp =>
