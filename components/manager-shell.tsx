@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { 
   BarChart3, Bell, CalendarOff, Grid3x3, Home, LogOut, MapPinned, Moon, PanelLeftClose, PanelLeftOpen, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -11,19 +12,28 @@ import { apiClient, clearToken } from "@/lib/api-client";
 // Base nav — `count` is filled in at runtime from real backend data (see
 // the navCounts state + effect below); it starts null so nothing fake is
 // ever shown before the real numbers load.
-const baseNav = [
+type NavCounts = { dcrs: number | null; leave: number | null; tourPlans: number | null; expenseClaims: number | null; visitCoveragePct: number | null };
+
+type BaseNavItem = {
+  href: string;
+  title: string;
+  icon: LucideIcon;
+  countKey?: keyof NavCounts;
+  countColor?: string;
+  countSuffix?: string;
+};
+
+const baseNav: BaseNavItem[] = [
   { href: "/manager/dashboard",      title: "Dashboard",       icon: Home },
-  { href: "/manager/dcrs",           title: "Team DCRs",        icon: BarChart3, countKey: "dcrs" as const, countColor: "emerald", countSuffix: " Today" },
-  { href: "/manager/leave",          title: "Leave Requests",   icon: CalendarOff, countKey: "leave" as const, countColor: "mono" },
-  { href: "/manager/tour-plans",     title: "Tour Plans",       icon: MapPinned, countKey: "tourPlans" as const, countColor: "amber", countSuffix: " Pending" },
-  { href: "/manager/expense-claims", title: "Expense Claims",   icon: Receipt, countKey: "expenseClaims" as const, countColor: "amber" },
-  { href: "/manager/visit-coverage", title: "Visit Coverage",   icon: Grid3x3, countKey: "visitCoveragePct" as const, countColor: "text", countSuffix: "%" },
+  { href: "/manager/dcrs",           title: "Team DCRs",        icon: BarChart3, countKey: "dcrs", countColor: "emerald", countSuffix: " Today" },
+  { href: "/manager/leave",          title: "Leave Requests",   icon: CalendarOff, countKey: "leave", countColor: "mono" },
+  { href: "/manager/tour-plans",     title: "Tour Plans",       icon: MapPinned, countKey: "tourPlans", countColor: "amber", countSuffix: " Pending" },
+  { href: "/manager/expense-claims", title: "Expense Claims",   icon: Receipt, countKey: "expenseClaims", countColor: "amber" },
+  { href: "/manager/visit-coverage", title: "Visit Coverage",   icon: Grid3x3, countKey: "visitCoveragePct", countColor: "text", countSuffix: "%" },
   { href: "/manager/compliance",     title: "Compliance",       icon: ShieldAlert },
   { href: "/manager/rep-analysis",   title: "Rep Analysis",     icon: UsersRound },
   { href: "/manager/team",           title: "My Team",          icon: Users }
 ];
-
-type NavCounts = { dcrs: number | null; leave: number | null; tourPlans: number | null; expenseClaims: number | null; visitCoveragePct: number | null };
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -101,9 +111,10 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const nav = baseNav.map((item) => {
-    if (!("countKey" in item)) return { ...item, count: null as string | null };
-    const raw = navCounts[item.countKey];
-    return { ...item, count: raw === null ? null : `${raw}${"countSuffix" in item ? item.countSuffix : ""}` };
+    const key = item.countKey;
+    if (!key) return { ...item, count: null as string | null };
+    const raw = navCounts[key];
+    return { ...item, count: raw === null ? null : `${raw}${item.countSuffix ?? ""}` };
   });
 
   const toggleTheme = (newTheme: "light"|"dark") => {
