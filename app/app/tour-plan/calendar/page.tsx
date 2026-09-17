@@ -1,12 +1,9 @@
-import { ModulePlaceholder } from "@/components/module-placeholder";
+import { redirect } from "next/navigation";
 
+// This route duplicated the already fully backend-wired Tour Plans page
+// at /manager/tour-plans (real apiClient.tourPlans() data, approve/reject/
+// reassign actions). Redirect here instead of showing a second, fake-data
+// copy.
 export default function TourPlanPage() {
-  return (
-    <ModulePlaceholder
-      eyebrow="Tour Planning"
-      title="Tour plan calendar"
-      description="Drag-drop tour calendar, team approvals, deviation tracker, and AI route intelligence."
-      items={["TP Calendar", "Pending Approvals", "Approved Plans", "Deviation Tracker", "Route Optimizer", "Coverage Gaps"]}
-    />
-  );
+  redirect("/manager/tour-plans");
 }

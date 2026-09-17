@@ -1,12 +1,8 @@
-import { ModulePlaceholder } from "@/components/module-placeholder";
+import { redirect } from "next/navigation";
 
+// This route duplicated the already fully backend-wired Notifications
+// page at /manager/notifications (real apiClient.notices() data). Redirect
+// here instead of showing a second, fake-data copy.
 export default function NotificationsPage() {
-  return (
-    <ModulePlaceholder
-      eyebrow="Notifications"
-      title="Notification center"
-      description="In-app, email, SMS, WhatsApp, and push notifications with alert rules and escalation chains."
-      items={["Notification Center", "Alert Rules", "Broadcast Messages", "History", "Preferences", "Escalations"]}
-    />
-  );
+  redirect("/manager/notifications");
 }
