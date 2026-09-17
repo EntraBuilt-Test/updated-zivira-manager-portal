@@ -43,6 +43,7 @@ export function ManagerLeaveRequests() {
   const [acting, setActing] = useState<string | null>(null);
   const [leaveTab, setLeaveTab] = useState<"all" | "pending">("all");
   const [leaveTypeFilter, setLeaveTypeFilter] = useState<string>("ALL");
+  const [search, setSearch] = useState("");
   const [batchApproving, setBatchApproving] = useState(false);
   const [viewRow, setViewRow] = useState<LeaveApplication | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -79,7 +80,15 @@ export function ManagerLeaveRequests() {
   const approvedCount = rows.filter(r => r.status === "APPROVED").length;
 
   const leaveTypes = Array.from(new Set(rows.map(r => r.leaveType))).sort();
-  const typeFilteredRows = rows.filter(r => leaveTypeFilter === "ALL" || r.leaveType === leaveTypeFilter);
+  const typeFilteredRows = rows
+    .filter(r => leaveTypeFilter === "ALL" || r.leaveType === leaveTypeFilter)
+    .filter(r => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return (r.employeeName ?? "").toLowerCase().includes(q)
+        || r.employeeCode.toLowerCase().includes(q)
+        || (r.reason ?? "").toLowerCase().includes(q);
+    });
   const allTabCount = typeFilteredRows.length;
   const pendingTabCount = typeFilteredRows.filter(r => r.status === "PENDING").length;
   const displayedRows = typeFilteredRows.filter(r => leaveTab === "all" || r.status === "PENDING");
@@ -308,7 +317,7 @@ export function ManagerLeaveRequests() {
         <div className="flex items-center flex-wrap sm:flex-nowrap gap-2.5">
           <div className="relative flex-1 sm:w-72">
             <Search size={16} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input className="w-full pl-9 pr-3.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400 transition-all text-slate-900 dark:text-white" placeholder="Search Rep name, MR-code, or reason..." type="text" />
+            <input value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-9 pr-3.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400 transition-all text-slate-900 dark:text-white" placeholder="Search Rep name, MR-code, or reason..." type="text" />
           </div>
           <select
             value={leaveTypeFilter}
@@ -445,7 +454,7 @@ export function ManagerLeaveRequests() {
                   <td colSpan={8} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center">
                       <Search size={24} className="mb-2 opacity-50" />
-                      <p>No leave requests found</p>
+                      <p>{rows.length === 0 ? "No leave requests found" : "No requests match your search/filter"}</p>
                     </div>
                   </td>
                 </tr>

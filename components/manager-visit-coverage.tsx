@@ -1,21 +1,94 @@
 "use client";
 import type { VisitCoverageGrid } from "@zivira/types";
-import { RefreshCw, MapPin, Users, Download, Calendar, Shield, Activity } from "lucide-react";
+import { RefreshCw, MapPin, Users, Download, Calendar, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+
+function csvCell(v: unknown): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Real, fixed 6-month window (current + previous 5), matching the pattern
+// used on the Compliance page — the backend's /visit-coverage endpoint
+// only accepts a "month" query param (YYYY-MM), no free-form range.
+function recentMonths(): string[] {
+  const months: string[] = [];
+  const d = new Date();
+  for (let i = 0; i < 6; i++) {
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    d.setMonth(d.getMonth() - 1);
+  }
+  return months;
+}
 
 export function ManagerVisitCoverage() {
   const [grid, setGrid] = useState<VisitCoverageGrid | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [month, setMonth] = useState("");
+  const [tab, setTab] = useState<"all" | "deficit">("all");
+  const [notice, setNotice] = useState("");
 
-  async function load() {
+  async function load(forMonth?: string) {
     setLoading(true); setError("");
-    try { setGrid((await apiClient.visitCoverage()).data); }
+    try {
+      const res = await apiClient.visitCoverage(forMonth || undefined);
+      setGrid(res.data);
+      setMonth(res.data.month);
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Load failed"); }
     finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, []);
+
+  function onMonthChange(m: string) {
+    setMonth(m);
+    void load(m);
+  }
+
+  // No cross-team scoping exists on GET /manager/visit-coverage (it is
+  // always restricted to the signed-in manager's own reportingManager
+  // team on the backend) — be honest instead of faking a wider dataset.
+  function crossTeamNotice() {
+    setNotice("Cross-team visit coverage isn't available from this page yet.");
+    window.setTimeout(() => setNotice(""), 4000);
+  }
+
+  // No follow-up scheduling endpoint exists in the backend either.
+  function scheduleFollowUpsNotice() {
+    setNotice("Scheduling follow-ups isn't available from this page yet.");
+    window.setTimeout(() => setNotice(""), 4000);
+  }
+
+  function exportXls() {
+    if (!grid || grid.rows.length === 0) return;
+    const header = ["Doctor", "Doctor ID", "Assigned Primary MR", "MR Code", ...grid.mrs.map(mr => mr.name), "Total Month Visits", "Status"];
+    const lines = [header.map(csvCell).join(",")];
+    for (const row of grid.rows) {
+      let total = 0;
+      const cellByCode = new Map(row.cells.map(c => [c.employeeCode, c.visitCount]));
+      const cellValues = grid.mrs.map(mr => { const v = cellByCode.get(mr.employeeCode) ?? 0; total += v; return v; });
+      lines.push([
+        row.doctorName,
+        row.doctorId,
+        row.mappedEmployeeName ?? "",
+        row.mappedEmployeeCode ?? "",
+        ...cellValues,
+        total,
+        total === 0 ? "DEFICIT" : "ACTIVE"
+      ].map(csvCell).join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `visit-coverage-${grid.month}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   const totalDoctors = grid?.rows.length ?? 0;
   let totalVisitsTarget = 0;
@@ -35,6 +108,12 @@ export function ManagerVisitCoverage() {
   }
   
   const completionRate = totalVisitsTarget > 0 ? ((totalVisitsActual / totalVisitsTarget) * 100).toFixed(1) : "0.0";
+
+  const visibleRows = (grid?.rows ?? []).filter(row => {
+    if (tab === "all") return true;
+    const total = row.cells.reduce((sum, c) => sum + c.visitCount, 0);
+    return total === 0;
+  });
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 bg-slate-50 dark:bg-slate-900">
@@ -56,24 +135,27 @@ export function ManagerVisitCoverage() {
 
         <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
           <div className="relative">
-            <select className="appearance-none bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold py-2 pl-3 pr-8 rounded-lg shadow-xs hover:border-slate-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
-              <option>{grid?.month ?? "Current Month"}</option>
+            <select value={month} onChange={e => onMonthChange(e.target.value)} className="appearance-none bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold py-2 pl-3 pr-8 rounded-lg shadow-xs hover:border-slate-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+              {recentMonths().map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
-          <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition">
+          <button type="button" onClick={crossTeamNotice} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition">
             <Users size={14} /> <span>Cross-Team</span>
           </button>
-          <button className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition">
+          <button type="button" onClick={exportXls} disabled={!grid?.rows.length} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed">
             <Download size={14} /> <span>Export XLS</span>
           </button>
-          <button onClick={load} disabled={loading} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition">
+          <button type="button" onClick={() => load(month)} disabled={loading} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> <span>Refresh</span>
           </button>
-          <button className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-teal-600 to-teal-700 rounded-lg shadow-sm transition transform active:scale-95">
+          <button type="button" onClick={scheduleFollowUpsNotice} className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-teal-600 to-teal-700 rounded-lg shadow-sm transition transform active:scale-95">
             <Calendar size={14} /> <span>Schedule Follow-ups</span>
           </button>
         </div>
       </section>
+
+      {notice && <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{notice}</p>}
+      {error && <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{error}</p>}
 
       {/* KPI Metrics Strip */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
@@ -146,8 +228,8 @@ export function ManagerVisitCoverage() {
       <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3.5">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 gap-1 overflow-x-auto">
-            <button className="px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold transition">All Doctors ({totalDoctors})</button>
-            <button className="px-3 py-1.5 rounded-md text-rose-700 hover:text-rose-900 hover:bg-white/60 transition flex items-center gap-1.5">
+            <button type="button" onClick={() => setTab("all")} className={tab === "all" ? "px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold transition" : "px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700 transition"}>All Doctors ({totalDoctors})</button>
+            <button type="button" onClick={() => setTab("deficit")} className={tab === "deficit" ? "px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 shadow-xs font-bold text-rose-700 transition flex items-center gap-1.5" : "px-3 py-1.5 rounded-md text-rose-700 hover:text-rose-900 hover:bg-white/60 dark:hover:bg-slate-700 transition flex items-center gap-1.5"}>
               <span>Zero Visits / Alert</span>
               <span className="w-2 h-2 rounded-full bg-rose-500"></span>
               <span className="text-[10px] bg-rose-100 px-1 rounded-full text-rose-800">{zeroVisitDeficit}</span>
@@ -191,10 +273,10 @@ export function ManagerVisitCoverage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs text-slate-700 dark:text-slate-300 font-medium">
-              {!loading && (!grid || grid.rows.length === 0) && (
-                <tr><td colSpan={(grid?.mrs.length ?? 0) + 5} className="text-center text-slate-500 dark:text-slate-400 py-8">No doctors mapped to your team yet</td></tr>
+              {!loading && visibleRows.length === 0 && (
+                <tr><td colSpan={(grid?.mrs.length ?? 0) + 5} className="text-center text-slate-500 dark:text-slate-400 py-8">{(grid?.rows.length ?? 0) === 0 ? "No doctors mapped to your team yet" : "No doctors match this filter"}</td></tr>
               )}
-              {grid?.rows.map((row, idx) => {
+              {visibleRows.map((row, idx) => {
                 let docTotal = 0;
                 row.cells.forEach(c => docTotal += c.visitCount);
                 const isDeficit = docTotal === 0;

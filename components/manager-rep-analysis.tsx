@@ -2,13 +2,24 @@
 import type { RepAnalysisRow, TeamJointWorkSummary } from "@zivira/types";
 import { RefreshCw, Users, Activity, Download, Calendar, Search } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
+function csvCell(v: unknown): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 export function ManagerRepAnalysis() {
+  const router = useRouter();
   const [reps, setReps] = useState<RepAnalysisRow[]>([]);
   const [summary, setSummary] = useState<TeamJointWorkSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<"all" | "logged" | "zero">("all");
+  const [viewing, setViewing] = useState<RepAnalysisRow | null>(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -23,10 +34,41 @@ export function ManagerRepAnalysis() {
 
   const totalFieldVisits = reps.reduce((acc, r) => acc + r.totalVisits, 0);
 
+  const visibleReps = reps
+    .filter(r => tab === "all" || (tab === "logged" ? r.jointVisits > 0 : r.jointVisitPercent === 0))
+    .filter(r => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return (r.employeeName ?? "").toLowerCase().includes(q) || r.employeeCode.toLowerCase().includes(q);
+    });
+  const loggedCount = reps.filter(r => r.jointVisits > 0).length;
+  const zeroCount = reps.filter(r => r.jointVisitPercent === 0).length;
+
+  function notify(message: string) {
+    setNotice(message);
+    window.setTimeout(() => setNotice(""), 4000);
+  }
+
+  function exportReport() {
+    if (visibleReps.length === 0) return;
+    const header = ["Employee Code", "Employee Name", "Doctors Visited", "Total Visits", "Joint Visits", "Joint Visit %"];
+    const lines = [header.map(csvCell).join(",")];
+    for (const r of visibleReps) {
+      lines.push([r.employeeCode, r.employeeName ?? "", r.doctorsVisited, r.totalVisits, r.jointVisits, r.jointVisitPercent].map(csvCell).join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rep-analysis-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-6 bg-slate-50 dark:bg-[#0b1120]">
-      {error && <p className="text-xs font-bold text-rose-600 bg-rose-50 p-4 rounded-xl">{error}</p>}
-      
       {/* Page Header & Title Section */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm relative overflow-hidden" data-purpose="page-title-banner">
         <div className="absolute top-0 right-0 translate-x-8 -translate-y-8 w-64 h-64 bg-teal-50/50 dark:bg-teal-900/20 rounded-full blur-2xl pointer-events-none"></div>
@@ -43,7 +85,7 @@ export function ManagerRepAnalysis() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition" type="button">
+            <button onClick={exportReport} disabled={visibleReps.length === 0} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed" type="button">
               <Download size={14} className="text-slate-500" />
               <span>Export Report</span>
             </button>
@@ -51,12 +93,14 @@ export function ManagerRepAnalysis() {
               <RefreshCw size={14} className={loading ? "animate-spin text-slate-600" : "text-slate-600"} />
               <span>Refresh</span>
             </button>
-            <button className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm shadow-teal-600/25 transition" type="button">
+            <button onClick={() => notify("Scheduling joint work isn't available from this page yet — assign an itinerary from Tour Plans instead.")} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm shadow-teal-600/25 transition" type="button">
               <Calendar size={14} />
               <span>Schedule Joint Work</span>
             </button>
           </div>
         </div>
+        {notice && <p className="mt-3 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 relative z-10">{notice}</p>}
+        {error && <p className="mt-3 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 relative z-10">{error}</p>}
       </div>
 
       {summary && (
@@ -137,25 +181,25 @@ export function ManagerRepAnalysis() {
       <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button className="px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 text-white shadow-sm" type="button">
+            <button onClick={() => setTab("all")} className={tab === "all" ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 text-white shadow-sm" : "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition"} type="button">
               All Reps ({reps.length})
             </button>
-            <button className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition" type="button">
-              Joint Work Logged
+            <button onClick={() => setTab("logged")} className={tab === "logged" ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 text-white shadow-sm" : "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition"} type="button">
+              Joint Work Logged ({loggedCount})
             </button>
-            <button className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition flex items-center gap-1.5" type="button">
+            <button onClick={() => setTab("zero")} className={tab === "zero" ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 text-white shadow-sm flex items-center gap-1.5" : "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition flex items-center gap-1.5"} type="button">
               <span>Zero Joint Calls</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400">Action Required</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400">{zeroCount}</span>
             </button>
           </div>
           <div className="text-xs text-slate-400 font-medium hidden md:flex items-center gap-2">
-            <span>Displaying {reps.length} of {reps.length} Field Representatives</span>
+            <span>Displaying {visibleReps.length} of {reps.length} Field Representatives</span>
           </div>
         </div>
         <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-0.5">
           <div className="relative w-full md:w-96">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input className="w-full pl-9 pr-4 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs placeholder-slate-400 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all text-slate-800 dark:text-white" placeholder="Search representative name, employee code..." type="text" />
+            <input value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-9 pr-4 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs placeholder-slate-400 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all text-slate-800 dark:text-white" placeholder="Search representative name, employee code..." type="text" />
           </div>
         </div>
       </section>
@@ -177,7 +221,10 @@ export function ManagerRepAnalysis() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {reps.map(r => {
+              {!loading && visibleReps.length === 0 && (
+                <tr><td colSpan={8} className="text-center text-slate-500 dark:text-slate-400 py-8">{reps.length === 0 ? "No representatives found" : "No representatives match your search/filter"}</td></tr>
+              )}
+              {visibleReps.map(r => {
                 const noJointWork = r.jointVisitPercent === 0;
                 return (
                   <tr key={r.employeeCode} className="hover:bg-slate-50/75 dark:hover:bg-slate-800/75 transition-colors group">
@@ -241,11 +288,11 @@ export function ManagerRepAnalysis() {
                     <td className="py-3.5 pr-4 pl-2 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {noJointWork ? (
-                          <button className="px-2.5 py-1 rounded-md text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 shadow-sm transition flex items-center gap-1" type="button">
+                          <button onClick={() => router.push("/manager/tour-plans")} className="px-2.5 py-1 rounded-md text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 shadow-sm transition flex items-center gap-1" type="button" title="Assign a joint day from Tour Plans">
                             Plan Day
                           </button>
                         ) : (
-                          <button className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" type="button">
+                          <button onClick={() => setViewing(r)} className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" type="button">
                             View Log
                           </button>
                         )}
@@ -322,13 +369,30 @@ export function ManagerRepAnalysis() {
           </div>
           
           <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
-            <button className="w-full py-2.5 px-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition flex items-center justify-center gap-2" type="button">
+            <button onClick={() => notify("Auto-generating a joint tour roster isn't available from this page yet — build it from Tour Plans instead.")} className="w-full py-2.5 px-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition flex items-center justify-center gap-2" type="button">
               <span>Auto-Generate Joint Tour Roster</span>
             </button>
           </div>
         </div>
       </section>
 
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => setViewing(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{viewing.employeeName ?? viewing.employeeCode}</h3>
+              <button onClick={() => setViewing(null)} type="button" className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xl leading-none" aria-label="Close">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Employee Code</span><span className="font-mono font-bold text-teal-800 dark:text-teal-400">{viewing.employeeCode}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Doctors Visited</span><span className="font-bold">{viewing.doctorsVisited}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Total Visits</span><span className="font-bold">{viewing.totalVisits}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Joint Visits (With You)</span><span className="font-bold">{viewing.jointVisits}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Joint Visit %</span><span className="font-bold">{viewing.jointVisitPercent}%</span></div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
-import type { Employee, ManagerDashboard } from "@zivira/types";
+import type { DcrExtended, Employee, ManagerDashboard } from "@zivira/types";
 import { RefreshCw, Users, Search, Download } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
@@ -30,13 +30,24 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
 export function ManagerDashboardPanel() {
   const router = useRouter();
   const [data, setData] = useState<ManagerDashboard | null>(null);
+  const [teamDcrs, setTeamDcrs] = useState<DcrExtended[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [search, setSearch] = useState("");
+  const [territoryFilter, setTerritoryFilter] = useState("ALL");
+  const [viewing, setViewing] = useState<Employee | null>(null);
 
   async function load() {
     setLoading(true); setError("");
-    try { setData((await apiClient.dashboard()).data); }
+    try {
+      const [dashboardRes, dcrsRes] = await Promise.all([
+        apiClient.dashboard(),
+        apiClient.dcrs().catch(() => ({ data: [] as DcrExtended[] })),
+      ]);
+      setData(dashboardRes.data);
+      setTeamDcrs(dcrsRes.data);
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Load failed"); }
     finally { setLoading(false); }
   }
@@ -62,6 +73,29 @@ export function ManagerDashboardPanel() {
     }));
     downloadCsv(`dcr-report-${new Date().toISOString().slice(0, 10)}.csv`, rows);
   }
+
+  // Real, backend-derived filtering for the "My Team" table: search, a
+  // territory dropdown populated from the loaded roster, and All / On
+  // Field / DCR Filed tabs. "DCR Filed" is computed from the manager's
+  // real DCR feed (apiClient.dcrs()) matched by employeeCode + today's date
+  // — there is no separate "today's DCR" flag on Employee itself.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const filedTodayCodes = useMemo(
+    () => new Set(teamDcrs.filter(d => d.visitDate?.slice(0, 10) === todayStr).map(d => d.employeeCode)),
+    [teamDcrs, todayStr]
+  );
+  const territoryOptions = useMemo(
+    () => Array.from(new Set((data?.team ?? []).map(e => e.territory))).sort(),
+    [data]
+  );
+  const visibleTeam = (data?.team ?? [])
+    .filter(e => territoryFilter === "ALL" || e.territory === territoryFilter)
+    .filter(e => activeTab === "all" || (activeTab === "on-field" ? e.status === "ACTIVE" : filedTodayCodes.has(e.employeeCode)))
+    .filter(e => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return e.name.toLowerCase().includes(q) || e.employeeCode.toLowerCase().includes(q) || e.territory.toLowerCase().includes(q);
+    });
 
   return (
     <>
@@ -218,7 +252,7 @@ export function ManagerDashboardPanel() {
             <div className="flex items-center space-x-2">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">My Team</h2>
               <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {data?.team?.length ?? 0} Representatives
+                {visibleTeam.length} of {data?.team?.length ?? 0} Representatives
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Real-time status, daily performance, territories, and immediate approval actions</p>
@@ -226,19 +260,17 @@ export function ManagerDashboardPanel() {
           
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="relative min-w-[220px]">
-              <input type="text" placeholder="Search Rep, Code, Territory..." className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-transparent transition placeholder:text-slate-400 text-slate-800 dark:text-slate-100" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} type="text" placeholder="Search Rep, Code, Territory..." className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-transparent transition placeholder:text-slate-400 text-slate-800 dark:text-slate-100" />
               <Search size={16} className="text-slate-400 absolute left-3 top-2" />
             </div>
-            <select className="text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 py-1.5 pl-3 pr-8 text-slate-700 dark:text-slate-200 font-medium focus:ring-brand-500">
+            <select value={territoryFilter} onChange={(e) => setTerritoryFilter(e.target.value)} className="text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 py-1.5 pl-3 pr-8 text-slate-700 dark:text-slate-200 font-medium focus:ring-brand-500">
               <option value="ALL">All Territories</option>
-              <option value="Chennai HQ">Chennai HQ</option>
-              <option value="Pune HQ">Pune HQ</option>
-              <option value="Delhi HQ">Delhi HQ</option>
+              {territoryOptions.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
-              <button onClick={() => setActiveTab("all")} className={`px-3 py-1 font-semibold rounded-lg shadow-xs transition ${activeTab === "all" ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}>All</button>
-              <button onClick={() => setActiveTab("on-field")} className={`px-3 py-1 font-semibold rounded-lg shadow-xs transition ${activeTab === "on-field" ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}>On Field</button>
-              <button onClick={() => setActiveTab("completed")} className={`px-3 py-1 font-semibold rounded-lg shadow-xs transition ${activeTab === "completed" ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}>DCR Filed</button>
+              <button type="button" onClick={() => setActiveTab("all")} className={`px-3 py-1 font-semibold rounded-lg shadow-xs transition ${activeTab === "all" ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}>All</button>
+              <button type="button" onClick={() => setActiveTab("on-field")} className={`px-3 py-1 font-semibold rounded-lg shadow-xs transition ${activeTab === "on-field" ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}>On Field</button>
+              <button type="button" onClick={() => setActiveTab("completed")} className={`px-3 py-1 font-semibold rounded-lg shadow-xs transition ${activeTab === "completed" ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}>DCR Filed</button>
             </div>
           </div>
         </div>
@@ -257,7 +289,7 @@ export function ManagerDashboardPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-              {(data?.team ?? []).map((emp, i) => (
+              {visibleTeam.map((emp, i) => (
                 <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition group">
                   <td className="py-3.5 px-4 text-center font-mono text-slate-400 group-hover:text-slate-700">{i + 1}</td>
                   <td className="py-3.5 px-4">
@@ -302,7 +334,7 @@ export function ManagerDashboardPanel() {
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end space-x-1.5">
-                      <button className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="View Rep Details">
+                      <button onClick={() => setViewing(emp)} type="button" className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="View Rep Details">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                       </button>
                       <button onClick={() => router.push("/manager/dcrs")} title={`Review ${emp.name}'s DCRs on the Team DCRs page`} className="px-2.5 py-1 text-xs font-semibold bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300 dark:hover:bg-brand-900 border border-brand-200 dark:border-brand-800 rounded-lg transition">
@@ -312,11 +344,11 @@ export function ManagerDashboardPanel() {
                   </td>
                 </tr>
               ))}
-              {!data && !loading && (
+              {!loading && visibleTeam.length === 0 && (
                 <tr>
                   <td colSpan={7} className="text-center text-slate-500 py-8">
                     <Users size={28} className="mx-auto mb-2 opacity-30" />
-                    No team data
+                    {(data?.team?.length ?? 0) === 0 ? "No team data" : "No representatives match your search/filter"}
                   </td>
                 </tr>
               )}
@@ -324,6 +356,25 @@ export function ManagerDashboardPanel() {
           </table>
         </div>
       </section>
+
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => setViewing(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{viewing.name}</h3>
+              <button onClick={() => setViewing(null)} type="button" className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xl leading-none" aria-label="Close">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Employee Code</span><span className="font-mono font-bold text-brand-700 dark:text-brand-400">{viewing.employeeCode}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Status</span><span className="font-bold">{viewing.status}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Designation</span><span className="font-medium">{viewing.designation}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Division</span><span className="font-medium">{viewing.division}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Territory</span><span className="font-medium">{viewing.territory}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">DCR Filed Today</span><span className="font-bold">{filedTodayCodes.has(viewing.employeeCode) ? "Yes" : "No"}</span></div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
