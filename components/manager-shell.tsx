@@ -8,17 +8,22 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiClient, clearToken } from "@/lib/api-client";
 
-const nav = [
-  { href: "/manager/dashboard",      title: "Dashboard",       icon: Home, count: null },
-  { href: "/manager/dcrs",           title: "Team DCRs",        icon: BarChart3, count: "4 Today", countColor: "emerald" },
-  { href: "/manager/leave",          title: "Leave Requests",   icon: CalendarOff, count: "0", countColor: "mono" },
-  { href: "/manager/tour-plans",     title: "Tour Plans",       icon: MapPinned, count: "2 Pending", countColor: "amber" },
-  { href: "/manager/expense-claims", title: "Expense Claims",   icon: Receipt, count: "1", countColor: "amber" },
-  { href: "/manager/visit-coverage", title: "Visit Coverage",   icon: Grid3x3, count: "84%", countColor: "text" },
-  { href: "/manager/compliance",     title: "Compliance",       icon: ShieldAlert, count: null },
-  { href: "/manager/rep-analysis",   title: "Rep Analysis",     icon: UsersRound, count: null },
-  { href: "/manager/team",           title: "My Team",          icon: Users, count: null }
+// Base nav — `count` is filled in at runtime from real backend data (see
+// the navCounts state + effect below); it starts null so nothing fake is
+// ever shown before the real numbers load.
+const baseNav = [
+  { href: "/manager/dashboard",      title: "Dashboard",       icon: Home },
+  { href: "/manager/dcrs",           title: "Team DCRs",        icon: BarChart3, countKey: "dcrs" as const, countColor: "emerald", countSuffix: " Today" },
+  { href: "/manager/leave",          title: "Leave Requests",   icon: CalendarOff, countKey: "leave" as const, countColor: "mono" },
+  { href: "/manager/tour-plans",     title: "Tour Plans",       icon: MapPinned, countKey: "tourPlans" as const, countColor: "amber", countSuffix: " Pending" },
+  { href: "/manager/expense-claims", title: "Expense Claims",   icon: Receipt, countKey: "expenseClaims" as const, countColor: "amber" },
+  { href: "/manager/visit-coverage", title: "Visit Coverage",   icon: Grid3x3, countKey: "visitCoveragePct" as const, countColor: "text", countSuffix: "%" },
+  { href: "/manager/compliance",     title: "Compliance",       icon: ShieldAlert },
+  { href: "/manager/rep-analysis",   title: "Rep Analysis",     icon: UsersRound },
+  { href: "/manager/team",           title: "My Team",          icon: Users }
 ];
+
+type NavCounts = { dcrs: number | null; leave: number | null; tourPlans: number | null; expenseClaims: number | null; visitCoveragePct: number | null };
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -62,6 +67,44 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     if (pathname === "/manager/login") return;
     apiClient.dashboard().then((r) => setManagerName(r.data.manager.name)).catch(() => {});
   }, [pathname]);
+
+  // Real sidebar badge counts — pending Team DCRs, pending Leave
+  // Requests, pending Tour Plans, pending Expense Claims, and this
+  // month's Visit Coverage %, all computed from the same real endpoints
+  // each page below already uses. Replaces the previously hardcoded
+  // "4 Today" / "2 Pending" / "1" / "84%" placeholder values.
+  const [navCounts, setNavCounts] = useState<NavCounts>({ dcrs: null, leave: null, tourPlans: null, expenseClaims: null, visitCoveragePct: null });
+
+  useEffect(() => {
+    if (pathname === "/manager/login") return;
+    let cancelled = false;
+    Promise.allSettled([
+      apiClient.dcrs(),
+      apiClient.leaveApplications(),
+      apiClient.tourPlans(),
+      apiClient.expenseClaims(),
+      apiClient.visitCoverage()
+    ]).then(([dcrsRes, leaveRes, tpRes, claimsRes, coverageRes]) => {
+      if (cancelled) return;
+      const dcrs = dcrsRes.status === "fulfilled" ? dcrsRes.value.data.filter((d) => d.status === "SUBMITTED").length : null;
+      const leave = leaveRes.status === "fulfilled" ? leaveRes.value.data.filter((l) => l.status === "PENDING").length : null;
+      const tourPlans = tpRes.status === "fulfilled" ? tpRes.value.data.filter((tp) => tp.status === "SUBMITTED").length : null;
+      const expenseClaims = claimsRes.status === "fulfilled" ? claimsRes.value.data.filter((c) => c.status === "SUBMITTED").length : null;
+      let visitCoveragePct: number | null = null;
+      if (coverageRes.status === "fulfilled") {
+        const rows = coverageRes.value.data.rows;
+        visitCoveragePct = rows.length ? Math.round((rows.filter((r) => r.cells.some((c) => c.visitCount > 0)).length / rows.length) * 100) : 0;
+      }
+      setNavCounts({ dcrs, leave, tourPlans, expenseClaims, visitCoveragePct });
+    });
+    return () => { cancelled = true; };
+  }, [pathname]);
+
+  const nav = baseNav.map((item) => {
+    if (!("countKey" in item)) return { ...item, count: null as string | null };
+    const raw = navCounts[item.countKey];
+    return { ...item, count: raw === null ? null : `${raw}${"countSuffix" in item ? item.countSuffix : ""}` };
+  });
 
   const toggleTheme = (newTheme: "light"|"dark") => {
     setTheme(newTheme);
