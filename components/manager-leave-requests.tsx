@@ -29,6 +29,11 @@ function formatDateFull(iso: string) {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function toCsvValue(value: string | number) {
+  const s = String(value ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 export function ManagerLeaveRequests() {
   const [rows, setRows] = useState<LeaveApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +41,11 @@ export function ManagerLeaveRequests() {
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [acting, setActing] = useState<string | null>(null);
+  const [leaveTab, setLeaveTab] = useState<"all" | "pending">("all");
+  const [leaveTypeFilter, setLeaveTypeFilter] = useState<string>("ALL");
+  const [batchApproving, setBatchApproving] = useState(false);
+  const [viewRow, setViewRow] = useState<LeaveApplication | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -68,6 +78,57 @@ export function ManagerLeaveRequests() {
   const pendingCount = rows.filter(r => r.status === "PENDING").length;
   const approvedCount = rows.filter(r => r.status === "APPROVED").length;
 
+  const leaveTypes = Array.from(new Set(rows.map(r => r.leaveType))).sort();
+  const typeFilteredRows = rows.filter(r => leaveTypeFilter === "ALL" || r.leaveType === leaveTypeFilter);
+  const allTabCount = typeFilteredRows.length;
+  const pendingTabCount = typeFilteredRows.filter(r => r.status === "PENDING").length;
+  const displayedRows = typeFilteredRows.filter(r => leaveTab === "all" || r.status === "PENDING");
+  const currentMonthLabel = new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+
+  async function batchApprove() {
+    const pendingIds = displayedRows.filter(r => r.status === "PENDING").map(r => r.id);
+    if (pendingIds.length === 0) return;
+    setBatchApproving(true); setError("");
+    try {
+      const results = await Promise.allSettled(pendingIds.map(id => apiClient.approveLeave(id)));
+      const failed = results.filter(r => r.status === "rejected").length;
+      const succeeded = results.length - failed;
+      if (failed > 0) setError(`Approved ${succeeded} of ${results.length} leave requests. ${failed} failed — please retry those.`);
+      else setError(`Approved all ${succeeded} pending leave request${succeeded === 1 ? "" : "s"}.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Batch approval failed");
+    } finally {
+      setBatchApproving(false);
+    }
+  }
+
+  function exportScheduleCsv() {
+    const header = ["Employee Code", "Employee Name", "Leave Type", "From", "To", "Days", "Status", "Reject Reason"];
+    const lines = [header.map(toCsvValue).join(",")];
+    for (const r of displayedRows) {
+      lines.push([
+        r.employeeCode,
+        r.employeeName ?? "",
+        r.leaveType,
+        r.fromDate,
+        r.toDate,
+        r.days,
+        r.status,
+        r.rejectReason ?? ""
+      ].map(toCsvValue).join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `leave-schedule-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6">
       {/* PageHeader */}
@@ -89,11 +150,15 @@ export function ManagerLeaveRequests() {
 
         {/* Quick Action Buttons */}
         <div className="flex items-center flex-wrap gap-2.5 shrink-0">
-          <button className="inline-flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs" type="button">
+          {/* "This Month" is not backed by any month-scoped filtering anywhere
+              in this component (no month/dateRange state feeds the load call
+              or the table), so it's shown as a static label rather than a
+              fake-interactive button. */}
+          <span className="inline-flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs">
             <Calendar size={16} className="text-slate-500" />
-            <span>This Month</span>
-          </button>
-          <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs" type="button">
+            <span>{currentMonthLabel}</span>
+          </span>
+          <button onClick={exportScheduleCsv} className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs" type="button">
             <Download size={14} className="text-slate-500" />
             <span>Export Schedule</span>
           </button>
@@ -101,14 +166,45 @@ export function ManagerLeaveRequests() {
             <RefreshCw size={14} className={`text-slate-500 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20" type="button">
+          <button
+            onClick={batchApprove}
+            disabled={batchApproving || pendingTabCount === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+          >
             <Check size={16} />
-            <span>Batch Approve ({pendingCount})</span>
+            <span>{batchApproving ? "Approving..." : `Batch Approve (${pendingTabCount})`}</span>
           </button>
         </div>
       </div>
 
       {error && <p className="text-sm font-medium text-rose-600 bg-rose-50 p-3 rounded-lg border border-rose-200">{error}</p>}
+
+      {/* View Details Modal */}
+      {viewRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => setViewRow(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{viewRow.employeeName ?? viewRow.employeeCode}</h3>
+              <button onClick={() => setViewRow(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xl leading-none" aria-label="Close">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Employee Code</span><span className="font-mono font-bold text-emerald-800 dark:text-emerald-400">{viewRow.employeeCode}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Status</span><span className="font-bold">{viewRow.status}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Leave Type</span><span className="font-medium">{viewRow.leaveType}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Days</span><span className="font-medium">{viewRow.days}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">From</span><span className="font-medium">{formatDateFull(viewRow.fromDate)}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">To</span><span className="font-medium">{formatDateFull(viewRow.toDate)}</span></div>
+              {viewRow.reason && (
+                <div className="col-span-2"><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Reason</span><span className="font-medium">{viewRow.reason}</span></div>
+              )}
+              {viewRow.status === "REJECTED" && viewRow.rejectReason && (
+                <div className="col-span-2"><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Reject Reason</span><span className="font-medium text-rose-600">{viewRow.rejectReason}</span></div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reject Modal */}
       {rejectId && (
@@ -194,11 +290,19 @@ export function ManagerLeaveRequests() {
       {/* FilterAndSearchToolbar */}
       <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
-          <button className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs whitespace-nowrap">
-            All Requests ({rows.length})
+          <button
+            type="button"
+            onClick={() => setLeaveTab("all")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs whitespace-nowrap transition-all ${leaveTab === "all" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+          >
+            All Requests ({allTabCount})
           </button>
-          <button className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/50 hover:bg-amber-100/70 transition-all whitespace-nowrap inline-flex items-center gap-2">
-            <span>Pending Review</span>
+          <button
+            type="button"
+            onClick={() => setLeaveTab("pending")}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap inline-flex items-center gap-2 ${leaveTab === "pending" ? "bg-amber-500 text-white border border-amber-500 shadow-xs" : "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/50 hover:bg-amber-100/70"}`}
+          >
+            <span>Pending Review ({pendingTabCount})</span>
           </button>
         </div>
         <div className="flex items-center flex-wrap sm:flex-nowrap gap-2.5">
@@ -206,10 +310,13 @@ export function ManagerLeaveRequests() {
             <Search size={16} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input className="w-full pl-9 pr-3.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400 transition-all text-slate-900 dark:text-white" placeholder="Search Rep name, MR-code, or reason..." type="text" />
           </div>
-          <select className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-emerald-500/20 transition-all">
-            <option>All Leave Types</option>
-            <option>Personal Work</option>
-            <option>Medical Appointment</option>
+          <select
+            value={leaveTypeFilter}
+            onChange={e => setLeaveTypeFilter(e.target.value)}
+            className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-emerald-500/20 transition-all"
+          >
+            <option value="ALL">All Leave Types</option>
+            {leaveTypes.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
       </section>
@@ -231,7 +338,7 @@ export function ManagerLeaveRequests() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs text-slate-700 dark:text-slate-200 font-medium">
-              {rows.map((row, i) => {
+              {displayedRows.map((row, i) => {
                 const sc = STATUS_COLORS[row.status] ?? STATUS_COLORS.PENDING;
                 const canAct = row.status === "PENDING";
                 const ltIcon = getLeaveIcon(row.leaveType);
@@ -281,8 +388,8 @@ export function ManagerLeaveRequests() {
                       </span>
                     </td>
                     <td className="py-3.5 pr-4 pl-2 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {canAct ? (
+                      <div className="flex items-center justify-end gap-1.5 relative">
+                        {canAct && (
                           <>
                             <button disabled={acting === row.id} onClick={() => approve(row.id)} className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1 shrink-0 disabled:opacity-50" type="button">
                               <Check size={14} /> <span>Approve</span>
@@ -291,22 +398,49 @@ export function ManagerLeaveRequests() {
                               Decline
                             </button>
                           </>
-                        ) : (
-                          <>
-                            <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" title="View Details">
-                              <Eye size={16} />
-                            </button>
-                            <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" title="Options">
-                              <MoreVertical size={16} />
-                            </button>
-                          </>
+                        )}
+                        <button onClick={() => setViewRow(row)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" title="View Details" type="button">
+                          <Eye size={16} />
+                        </button>
+                        <button onClick={() => setOpenMenuId(openMenuId === row.id ? null : row.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" title="Options" type="button">
+                          <MoreVertical size={16} />
+                        </button>
+                        {openMenuId === row.id && (
+                          <div className="absolute right-0 top-8 z-20 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg py-1 text-left">
+                            {canAct ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => { setOpenMenuId(null); void approve(row.id); }}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                >
+                                  <Check size={14} className="text-emerald-600" /> Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setOpenMenuId(null); setRejectId(row.id); setRejectReason(""); }}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-2"
+                                >
+                                  <X size={14} /> Reject
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => { setOpenMenuId(null); setViewRow(row); }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                              >
+                                <Eye size={14} /> View details
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
                   </tr>
                 );
               })}
-              {!loading && rows.length === 0 && (
+              {!loading && displayedRows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center">

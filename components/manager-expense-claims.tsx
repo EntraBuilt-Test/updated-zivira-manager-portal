@@ -13,6 +13,7 @@ export function ManagerExpenseClaims() {
   const [rejectTarget, setRejectTarget] = useState<ExpenseClaim | null>(null);
   const [reason, setReason] = useState("");
   const [acting, setActing] = useState(false);
+  const [claimsTab, setClaimsTab] = useState<"all" | "pending" | "approved">("all");
 
   useEffect(() => {
     apiClient.dashboard().then(r => setMyEmployeeCode(r.data.manager.employeeCode)).catch(() => {});
@@ -51,6 +52,12 @@ export function ManagerExpenseClaims() {
   const pendingAmount = claims.filter(c => c.status === "SUBMITTED").reduce((acc, c) => acc + c.amountRs, 0);
   const approvedCount = claims.filter(c => c.status === "APPROVED").length;
   const approvedAmount = claims.filter(c => c.status === "APPROVED").reduce((acc, c) => acc + c.amountRs, 0);
+
+  const displayedClaims = claims.filter(c => {
+    if (claimsTab === "pending") return c.status === "SUBMITTED";
+    if (claimsTab === "approved") return c.status === "APPROVED";
+    return true;
+  });
 
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
@@ -194,14 +201,28 @@ export function ManagerExpenseClaims() {
       <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 p-4 shadow-sm space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-1.5 overflow-x-auto">
-            <button className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white shadow-sm">All Claims ({claims.length})</button>
-            <button className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5">
-              <span>Pending</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">{pendingCount}</span>
+            <button
+              type="button"
+              onClick={() => setClaimsTab("all")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-sm transition ${claimsTab === "all" ? "bg-slate-900 text-white" : "bg-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-none"}`}
+            >
+              All Claims ({claims.length})
             </button>
-            <button className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setClaimsTab("pending")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${claimsTab === "pending" ? "bg-amber-500 text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+            >
+              <span>Pending</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${claimsTab === "pending" ? "bg-white/25 text-white" : "bg-amber-100 text-amber-800"}`}>{pendingCount}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setClaimsTab("approved")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${claimsTab === "approved" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+            >
               <span>Approved</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">{approvedCount}</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${claimsTab === "approved" ? "bg-white/25 text-white" : "bg-emerald-100 text-emerald-800"}`}>{approvedCount}</span>
             </button>
           </div>
           <div className="text-xs text-slate-400 font-medium">Auto-synced with GST Tax Invoicing Ledger</div>
@@ -239,10 +260,10 @@ export function ManagerExpenseClaims() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs text-slate-700 dark:text-slate-300">
-              {claims.length === 0 && !loading && (
+              {displayedClaims.length === 0 && !loading && (
                 <tr><td colSpan={9} className="py-8 text-center text-slate-500 dark:text-slate-400">No expense claims found</td></tr>
               )}
-              {claims.map(c => {
+              {displayedClaims.map(c => {
                 const isMine = !myEmployeeCode || c.assignedManager === myEmployeeCode;
                 const canAct = c.status === "SUBMITTED" && isMine;
 
