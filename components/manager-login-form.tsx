@@ -9,7 +9,7 @@ import { apiClient, setToken } from "@/lib/api-client";
 export function ManagerLoginForm() {
   const router = useRouter();
   const [username, setUsername] = useState("abm-001");
-  const [password, setPassword] = useState("ziviramumbai");
+  const [password, setPassword] = useState("Zivirachennai");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
