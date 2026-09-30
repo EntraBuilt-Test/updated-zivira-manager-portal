@@ -29,15 +29,17 @@ export type ManagerListItem = {
 // GET /manager/team already is.
 export type ManagerCampaignVisit = {
   id: string;
-  campaignId: string;
-  campaignName: string;
+  campaignId?: string | null;
+  campaignName?: string;
   employeeCode: string;
   employeeName?: string;
   doctorId: string;
   doctorName?: string;
   visitDate: string;
   source: "planned" | "deviation";
-  status: "Planned" | "Completed" | "Cancelled";
+  status: "Planned" | "Completed" | "Cancelled" | "Pending Approval" | "Rejected";
+  deviationType?: string | null;
+  rejectReason?: string | null;
   notes?: string;
   createdAt?: string;
 };
@@ -132,5 +134,14 @@ export const apiClient = {
 
   // Phase 1 — Campaign Planning & Execution team visibility
   campaignVisits: (date?: string) =>
-    request<ManagerCampaignVisit[]>(`/manager/campaign-visits${date ? `?date=${encodeURIComponent(date)}` : ""}`)
+    request<ManagerCampaignVisit[]>(`/manager/campaign-visits${date ? `?date=${encodeURIComponent(date)}` : ""}`),
+
+  // Phase 3 — deviation approval queue, scoped to this manager's team
+  // the same way every other approval endpoint already is.
+  deviationVisits: (status?: string) =>
+    request<ManagerCampaignVisit[]>(`/manager/deviation-visits${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  approveDeviation: (id: string) =>
+    request<ManagerCampaignVisit>(`/manager/deviation-visits/${id}/approve`, { method: "POST" }),
+  rejectDeviation: (id: string, reason?: string) =>
+    request<ManagerCampaignVisit>(`/manager/deviation-visits/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) })
 };
