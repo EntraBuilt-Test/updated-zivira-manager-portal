@@ -1,7 +1,7 @@
 "use client";
 import clsx from "clsx";
 import { 
-  BarChart3, Bell, CalendarOff, Grid3x3, Home, LogOut, MapPinned, Moon, PanelLeftClose, PanelLeftOpen, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown, ClipboardCheck, Stethoscope
+  BarChart3, Bell, CalendarOff, Grid3x3, Home, LogOut, MapPinned, Moon, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown, ClipboardCheck, Stethoscope
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";

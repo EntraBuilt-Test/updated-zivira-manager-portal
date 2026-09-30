@@ -87,7 +87,7 @@ export function ManagerCampaign() {
   }
 
   useEffect(() => { void load(); }, [scope]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { void loadPending(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void loadPending(); }, []);
 
   async function approve(id: string) {
     setActingId(id);
