@@ -144,7 +144,7 @@ export function ManagerCampaign() {
             {pending.map((v) => (
               <div key={v.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{v.doctorName}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{v.doctorName || v.chemistName}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {v.employeeName || v.employeeCode} · {formatDate(v.visitDate)} · {v.deviationType || "Deviation"}
                   </p>
@@ -230,7 +230,7 @@ export function ManagerCampaign() {
                     {visits.map((v) => (
                       <tr key={v.id} className="border-b border-slate-100 dark:border-slate-800/70 last:border-0">
                         <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">{v.employeeName || v.employeeCode}</td>
-                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{v.doctorName}</td>
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{v.doctorName || v.chemistName}</td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{v.campaignName || (v.source === "deviation" ? (v.deviationType || "Deviation") : "-")}</td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{formatDate(v.visitDate)}</td>
                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400 capitalize">{v.source}</td>

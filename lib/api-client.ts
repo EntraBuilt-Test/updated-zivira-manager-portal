@@ -33,8 +33,13 @@ export type ManagerCampaignVisit = {
   campaignName?: string;
   employeeCode: string;
   employeeName?: string;
-  doctorId: string;
+  // Phase 5 — chemist deviations/visits flow through this exact same
+  // generic approval queue; visitType picks which target name applies.
+  visitType?: "doctor" | "chemist";
+  doctorId?: string | null;
   doctorName?: string;
+  chemistId?: string | null;
+  chemistName?: string;
   visitDate: string;
   source: "planned" | "deviation";
   status: "Planned" | "Completed" | "Cancelled" | "Pending Approval" | "Rejected";
