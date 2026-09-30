@@ -28,6 +28,11 @@ const baseNav: BaseNavItem[] = [
   { href: "/manager/dcrs",           title: "Team DCRs",        icon: BarChart3, countKey: "dcrs", countColor: "emerald", countSuffix: " Today" },
   { href: "/manager/leave",          title: "Leave Requests",   icon: CalendarOff, countKey: "leave", countColor: "mono" },
   { href: "/manager/tour-plans",     title: "Tour Plans",       icon: MapPinned, countKey: "tourPlans", countColor: "amber", countSuffix: " Pending" },
+  // Phase 1 of the "Call Manager" reference build — real, team-scoped
+  // visibility into what each report has planned via Campaign Planning
+  // (GET /manager/campaign-visits), same reportingManager-based scoping
+  // every other manager screen already uses.
+  { href: "/manager/campaign",       title: "Campaign",         icon: Megaphone },
   { href: "/manager/expense-claims", title: "Expense Claims",   icon: Receipt, countKey: "expenseClaims", countColor: "amber" },
   { href: "/manager/visit-coverage", title: "Visit Coverage",   icon: Grid3x3, countKey: "visitCoveragePct", countColor: "text", countSuffix: "%" },
   { href: "/manager/compliance",     title: "Compliance",       icon: ShieldAlert },

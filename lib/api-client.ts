@@ -23,6 +23,25 @@ export type ManagerListItem = {
   designation?: string | null;
 };
 
+// Phase 1 of the "Call Manager" reference build — Campaign Planning &
+// Execution. Mirrors a real CampaignVisitModel row (see the backend
+// model), team-scoped via GET /manager/campaign-visits the same way
+// GET /manager/team already is.
+export type ManagerCampaignVisit = {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  employeeCode: string;
+  employeeName?: string;
+  doctorId: string;
+  doctorName?: string;
+  visitDate: string;
+  source: "planned" | "deviation";
+  status: "Planned" | "Completed" | "Cancelled";
+  notes?: string;
+  createdAt?: string;
+};
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://zivira-backend-swagger-ui.onrender.com/api";
 const TOKEN_KEY = "zivira.manager.token";
 
@@ -109,5 +128,9 @@ export const apiClient = {
   leaveApplications: () => request<LeaveApplication[]>("/manager/leave-applications"),
   approveLeave: (id: string) => request<LeaveApplication>(`/manager/leave-applications/${id}/approve`, { method: "POST" }),
   rejectLeave: (id: string, reason?: string) =>
-    request<LeaveApplication>(`/manager/leave-applications/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) })
+    request<LeaveApplication>(`/manager/leave-applications/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+
+  // Phase 1 — Campaign Planning & Execution team visibility
+  campaignVisits: (date?: string) =>
+    request<ManagerCampaignVisit[]>(`/manager/campaign-visits${date ? `?date=${encodeURIComponent(date)}` : ""}`)
 };
