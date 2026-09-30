@@ -49,6 +49,46 @@ export type ManagerCampaignVisit = {
   createdAt?: string;
 };
 
+// Phase 6 — team attendance/checkout visibility, built directly on Phase
+// 2's real AttendanceModel via GET /manager/team-checkout-status.
+export type ManagerTeamCheckoutStatus = {
+  employeeCode: string;
+  employeeName: string;
+  checkedInToday: boolean;
+  checkedOutToday: boolean;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  hasOpenPriorDay: boolean;
+  openPriorDay: string | null;
+};
+
+// Phase 6 — team Chemist Call read/detail view, mirroring the real
+// ChemistCallModel the field-rep Chemist Call screen (Phase 5) saves to.
+export type ManagerChemistCallRow = {
+  brandId?: string;
+  brandName: string;
+  myQty?: number;
+  compBrandName?: string;
+  compQty?: number;
+};
+export type ManagerChemistCallPobRow = { productId?: string; productName: string; qty: number };
+export type ManagerChemistCallShortExpiryRow = { medicineName: string; expiryDate?: string; qty: number };
+export type ManagerChemistCallJccRow = { employeeCode?: string; name: string; designation?: string };
+export type ManagerChemistCall = {
+  id: string;
+  employeeCode: string;
+  employeeName?: string;
+  chemistId: string;
+  chemistName?: string;
+  visitDateOnly: string;
+  rcpa: ManagerChemistCallRow[];
+  pob: ManagerChemistCallPobRow[];
+  shortExpiry: ManagerChemistCallShortExpiryRow[];
+  jcc: ManagerChemistCallJccRow[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://zivira-backend-swagger-ui.onrender.com/api";
 const TOKEN_KEY = "zivira.manager.token";
 
@@ -148,5 +188,15 @@ export const apiClient = {
   approveDeviation: (id: string) =>
     request<ManagerCampaignVisit>(`/manager/deviation-visits/${id}/approve`, { method: "POST" }),
   rejectDeviation: (id: string, reason?: string) =>
-    request<ManagerCampaignVisit>(`/manager/deviation-visits/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) })
+    request<ManagerCampaignVisit>(`/manager/deviation-visits/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+
+  // Phase 6 — team attendance/checkout status (real AttendanceModel data,
+  // reusing the exact checked-in/checked-out/open-prior-day logic Phase 2
+  // built for the field rep's own checkout gate).
+  teamCheckoutStatus: () => request<ManagerTeamCheckoutStatus[]>("/manager/team-checkout-status"),
+
+  // Phase 6 — team Chemist Call read/detail view, same reportingManager
+  // scoping every other manager screen already uses.
+  chemistCalls: () => request<ManagerChemistCall[]>("/manager/chemist-calls"),
+  chemistCall: (id: string) => request<ManagerChemistCall>(`/manager/chemist-calls/${id}`)
 };

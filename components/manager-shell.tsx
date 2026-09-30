@@ -1,7 +1,7 @@
 "use client";
 import clsx from "clsx";
 import { 
-  BarChart3, Bell, CalendarOff, Grid3x3, Home, LogOut, MapPinned, Moon, PanelLeftClose, PanelLeftOpen, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown
+  BarChart3, Bell, CalendarOff, Grid3x3, Home, LogOut, MapPinned, Moon, PanelLeftClose, PanelLeftOpen, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown, ClipboardCheck, Stethoscope
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +33,12 @@ const baseNav: BaseNavItem[] = [
   // (GET /manager/campaign-visits), same reportingManager-based scoping
   // every other manager screen already uses.
   { href: "/manager/campaign",       title: "Campaign",         icon: Megaphone },
+  // Phase 6 — real, team-scoped attendance/checkout visibility (GET
+  // /manager/team-checkout-status, reusing Phase 2's AttendanceModel).
+  { href: "/manager/attendance",     title: "Team Attendance",  icon: ClipboardCheck },
+  // Phase 6 — read/detail view of team Chemist Call records (GET
+  // /manager/chemist-calls), mirroring the existing Team DCRs screen.
+  { href: "/manager/chemist-calls",  title: "Chemist Calls",    icon: Stethoscope },
   { href: "/manager/expense-claims", title: "Expense Claims",   icon: Receipt, countKey: "expenseClaims", countColor: "amber" },
   { href: "/manager/visit-coverage", title: "Visit Coverage",   icon: Grid3x3, countKey: "visitCoveragePct", countColor: "text", countSuffix: "%" },
   { href: "/manager/compliance",     title: "Compliance",       icon: ShieldAlert },

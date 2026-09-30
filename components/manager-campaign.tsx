@@ -10,6 +10,19 @@ function formatDate(iso?: string | null) {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function typeBadge(v: ManagerCampaignVisit) {
+  const isChemist = (v.visitType ?? "doctor") === "chemist";
+  return (
+    <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-black uppercase border shrink-0 ${
+      isChemist
+        ? "bg-purple-50 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 border-purple-300 dark:border-purple-800"
+        : "bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 border-blue-300 dark:border-blue-800"
+    }`}>
+      {isChemist ? "Chemist" : "Doctor"}
+    </span>
+  );
+}
+
 function statusBadge(status: ManagerCampaignVisit["status"]) {
   if (status === "Completed") return "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800";
   if (status === "Cancelled") return "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700";
@@ -39,6 +52,7 @@ export function ManagerCampaign() {
   const [scope, setScope] = useState<"today" | "all">("today");
   const today = new Date().toISOString().slice(0, 10);
 
+  const [typeFilter, setTypeFilter] = useState<"all" | "doctor" | "chemist">("all");
   const [pending, setPending] = useState<ManagerCampaignVisit[]>([]);
   const [pendingLoading, setPendingLoading] = useState(true);
   const [pendingError, setPendingError] = useState("");
@@ -104,6 +118,9 @@ export function ManagerCampaign() {
     }
   }
 
+  const filteredPending = pending.filter((v) => typeFilter === "all" || (v.visitType ?? "doctor") === typeFilter);
+  const filteredVisits = visits.filter((v) => typeFilter === "all" || (v.visitType ?? "doctor") === typeFilter);
+
   return (
     <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6 bg-slate-50 dark:bg-[#0b1120]">
       <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-sm">
@@ -128,6 +145,12 @@ export function ManagerCampaign() {
         </div>
       </section>
 
+      <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold w-fit">
+        <button type="button" onClick={() => setTypeFilter("all")} className={`px-3 py-1.5 rounded-lg transition-colors ${typeFilter === "all" ? "bg-white dark:bg-slate-900 text-teal-800 dark:text-teal-400 shadow-sm" : "text-slate-500 dark:text-slate-400"}`}>All</button>
+        <button type="button" onClick={() => setTypeFilter("doctor")} className={`px-3 py-1.5 rounded-lg transition-colors ${typeFilter === "doctor" ? "bg-white dark:bg-slate-900 text-teal-800 dark:text-teal-400 shadow-sm" : "text-slate-500 dark:text-slate-400"}`}>Doctors</button>
+        <button type="button" onClick={() => setTypeFilter("chemist")} className={`px-3 py-1.5 rounded-lg transition-colors ${typeFilter === "chemist" ? "bg-white dark:bg-slate-900 text-teal-800 dark:text-teal-400 shadow-sm" : "text-slate-500 dark:text-slate-400"}`}>Chemists</button>
+      </div>
+
       {tab === "deviations" ? (
         <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
@@ -137,14 +160,14 @@ export function ManagerCampaign() {
             </button>
           </div>
           {pendingError && <p className="text-rose-600 font-medium text-xs px-6 pt-3">{pendingError}</p>}
-          {!pendingLoading && pending.length === 0 && !pendingError && (
+          {!pendingLoading && filteredPending.length === 0 && !pendingError && (
             <p className="text-sm text-slate-500 dark:text-slate-400 italic px-6 py-8 text-center">No deviation requests waiting on you.</p>
           )}
           <div className="divide-y divide-slate-100 dark:divide-slate-800/70">
-            {pending.map((v) => (
+            {filteredPending.map((v) => (
               <div key={v.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{v.doctorName || v.chemistName}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">{typeBadge(v)} {v.doctorName || v.chemistName}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {v.employeeName || v.employeeCode} · {formatDate(v.visitDate)} · {v.deviationType || "Deviation"}
                   </p>
@@ -208,18 +231,19 @@ export function ManagerCampaign() {
           {error && <p className="text-rose-600 font-medium text-xs">{error}</p>}
 
           <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
-            {!loading && visits.length === 0 && !error && (
+            {!loading && filteredVisits.length === 0 && !error && (
               <p className="text-sm text-slate-500 dark:text-slate-400 italic px-6 py-8 text-center">
                 {scope === "today" ? "No campaign visits planned for today across your team." : "No campaign visits planned by your team yet."}
               </p>
             )}
-            {visits.length > 0 && (
+            {filteredVisits.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50">
                       <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Rep</th>
-                      <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Doctor</th>
+                      <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Type</th>
+                      <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Doctor / Chemist</th>
                       <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Campaign</th>
                       <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Date</th>
                       <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Source</th>
@@ -227,9 +251,10 @@ export function ManagerCampaign() {
                     </tr>
                   </thead>
                   <tbody>
-                    {visits.map((v) => (
+                    {filteredVisits.map((v) => (
                       <tr key={v.id} className="border-b border-slate-100 dark:border-slate-800/70 last:border-0">
                         <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">{v.employeeName || v.employeeCode}</td>
+                        <td className="px-4 py-3">{typeBadge(v)}</td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{v.doctorName || v.chemistName}</td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{v.campaignName || (v.source === "deviation" ? (v.deviationType || "Deviation") : "-")}</td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{formatDate(v.visitDate)}</td>
