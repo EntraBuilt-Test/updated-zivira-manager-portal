@@ -107,6 +107,33 @@ async function request<T>(path: string, init: RequestInit = {}) {
   return payload as ApiEnvelope<T>;
 }
 
+// Items 4/6 (post-launch robustness round) -- real file download (Circulars
+// / Manuals), same fetch-blob-then-save-link pattern the admin and field
+// portals already use for their own downloads.
+async function downloadFile(path: string, fileName: string) {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+  });
+  if (!response.ok) throw new Error("Download failed");
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName || "download";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export type ManagerDocument = {
+  id: string;
+  subject?: string | null;
+  fileName?: string | null;
+  uploadedOn?: string | null;
+};
+
 export const apiClient = {
   login: (username: string, password: string) =>
     request<{ token: string }>("/auth/login", { method: "POST", body: JSON.stringify({ username, password, portal: "FIELD_FORCE" }) }),
@@ -116,6 +143,15 @@ export const apiClient = {
   // their Tour Plans). `since` (ISO timestamp) lets the notifications page
   // poll for only what's new.
   notices: (since?: string) => request<ManagerNotice[]>(`/manager/notices${since ? `?since=${encodeURIComponent(since)}` : ""}`),
+  // Items 4/6 (post-launch robustness round)
+  circulars: () => request<ManagerDocument[]>("/manager/circulars"),
+  downloadCircular: (id: string, fileName: string) => downloadFile(`/manager/circulars/${id}/download`, fileName),
+  manuals: () => request<ManagerDocument[]>("/manager/manuals"),
+  downloadManual: (id: string, fileName: string) => downloadFile(`/manager/manuals/${id}/download`, fileName),
+  // Item 12 (post-launch robustness round) -- real Flash News/Notice
+  // Board/Quote of the Week/Talk to Us content admin actually saved,
+  // same backend read GET /field/announcements also uses.
+  announcements: () => request<{ flashNews: { content: string } | null; noticeBoard: { content1: string; content2: string; content3: string } | null; quoteOfTheWeek: { quote: string } | null; talkToUs: { content: string } | null }>("/manager/announcements"),
   team:      () => request<Employee[]>("/manager/team"),
   createTeamMember: (input: Omit<Employee, "id" | "tenantSlug" | "createdAt" | "updatedAt" | "reportingManager"> & { password?: string }) =>
     request<Employee & { demoPassword?: string }>("/manager/team", { method: "POST", body: JSON.stringify(input) }),

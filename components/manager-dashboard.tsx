@@ -31,6 +31,12 @@ export function ManagerDashboardPanel() {
   const router = useRouter();
   const [data, setData] = useState<ManagerDashboard | null>(null);
   const [teamDcrs, setTeamDcrs] = useState<DcrExtended[]>([]);
+  // Item 12 (post-launch robustness round) -- real Flash News/Quote of the
+  // Week values, surfaced here for the first time (previously admin-only).
+  const [flashNews, setFlashNews] = useState<string | null>(null);
+  const [quoteOfWeek, setQuoteOfWeek] = useState<string | null>(null);
+  const [noticeBoard, setNoticeBoard] = useState<string[] | null>(null);
+  const [talkToUs, setTalkToUs] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -47,6 +53,20 @@ export function ManagerDashboardPanel() {
       ]);
       setData(dashboardRes.data);
       setTeamDcrs(dcrsRes.data);
+      try {
+        const annRes = await apiClient.announcements();
+        setFlashNews(annRes.data.flashNews?.content?.trim() || null);
+        setQuoteOfWeek(annRes.data.quoteOfTheWeek?.quote?.trim() || null);
+        const nb = annRes.data.noticeBoard;
+        const notices = nb ? [nb.content1, nb.content2, nb.content3].map((s) => s?.trim()).filter((s): s is string => !!s) : [];
+        setNoticeBoard(notices.length ? notices : null);
+        setTalkToUs(annRes.data.talkToUs?.content?.trim() || null);
+      } catch {
+        setFlashNews(null);
+        setQuoteOfWeek(null);
+        setNoticeBoard(null);
+        setTalkToUs(null);
+      }
     }
     catch (e) { setError(e instanceof Error ? e.message : "Load failed"); }
     finally { setLoading(false); }
@@ -99,6 +119,31 @@ export function ManagerDashboardPanel() {
 
   return (
     <>
+      {(flashNews || quoteOfWeek || noticeBoard || talkToUs) && (
+        <div className="space-y-2 mb-4">
+          {flashNews && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+              <span className="font-semibold uppercase tracking-wide text-[11px]">Flash News</span>
+              <span className="truncate">{flashNews}</span>
+            </div>
+          )}
+          {quoteOfWeek && (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 dark:bg-indigo-950/30 dark:border-indigo-800 px-4 py-2.5 text-sm italic text-indigo-900 dark:text-indigo-200">
+              &ldquo;{quoteOfWeek}&rdquo;
+            </div>
+          )}
+          {noticeBoard && noticeBoard.map((n, i) => (
+            <div key={i} className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-900">
+              {n}
+            </div>
+          ))}
+          {talkToUs && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+              <span className="font-bold uppercase tracking-wide mr-1">Talk to Us</span>{talkToUs}
+            </div>
+          )}
+        </div>
+      )}
       {/* Section Header */}
       <section className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

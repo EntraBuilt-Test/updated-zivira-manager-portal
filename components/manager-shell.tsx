@@ -1,7 +1,7 @@
 "use client";
 import clsx from "clsx";
 import { 
-  BarChart3, Bell, CalendarOff, Grid3x3, Home, LogOut, MapPinned, Moon, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown, ClipboardCheck, Stethoscope
+  BarChart3, Bell, CalendarOff, FileText, Grid3x3, Home, LogOut, MapPinned, Moon, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown, ClipboardCheck, Stethoscope
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -59,7 +59,12 @@ const baseNav: BaseNavItem[] = [
   { href: "/manager/visit-coverage", title: "Visit Coverage",   icon: Grid3x3, countKey: "visitCoveragePct", countColor: "text", countSuffix: "%" },
   { href: "/manager/compliance",     title: "Compliance",       icon: ShieldAlert },
   { href: "/manager/rep-analysis",   title: "Rep Analysis",     icon: UsersRound },
-  { href: "/manager/team",           title: "My Team",          icon: Users }
+  { href: "/manager/team",           title: "My Team",          icon: Users },
+  // Items 4/6 (post-launch robustness round) -- real Circulars (File
+  // Upload Designation-wise, filtered to this manager's own designation)
+  // and Manuals (User Manual Upload), neither of which had any manager-
+  // side screen before. GET /manager/circulars + /manager/manuals.
+  { href: "/manager/documents",      title: "Documents",        icon: FileText }
 ];
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
@@ -208,7 +213,19 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
           </button>
           
           <div className="relative">
-            <button aria-label="Notifications" onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg relative transition">
+            <button
+              aria-label="Notifications"
+              onClick={() => {
+                setShowNotifications((v) => !v);
+                // Item 5 (post-launch robustness round) -- opening the
+                // dropdown itself used to leave the unread dot on until the
+                // rep separately visited the full notifications page.
+                window.localStorage.setItem("zivira.manager.notices.lastSeen", new Date().toISOString());
+                setHasUnread(false);
+                setNewCount(0);
+              }}
+              className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg relative transition"
+            >
               <Bell size={20} />
               {hasUnread && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>}
             </button>
