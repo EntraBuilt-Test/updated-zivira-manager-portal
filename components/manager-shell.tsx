@@ -7,7 +7,23 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { apiClient, clearToken } from "@/lib/api-client";
+import { apiClient, clearToken, type ManagerNotice } from "@/lib/api-client";
+
+// Round G item 3 — the bell dropdown preview used to render 3 hardcoded
+// fake alerts ("Rahul Deshmukh submitted DCR", "Anjali Menon ...", "Priya
+// dharshini ...") regardless of what apiClient.notices() actually
+// returned; only the unread dot itself was ever real. timeAgo() renders a
+// real relative timestamp for the real notices now shown below.
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 // Base nav — `count` is filled in at runtime from real backend data (see
 // the navCounts state + effect below); it starts null so nothing fake is
@@ -53,21 +69,30 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
   const [managerName, setManagerName] = useState<string | null>(null);
   const [hasUnread, setHasUnread] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  // Round G item 3 — real notices backing the dropdown preview (replaces
+  // the previously hardcoded 3-item fake list below).
+  const [recentNotices, setRecentNotices] = useState<ManagerNotice[]>([]);
+  const [newCount, setNewCount] = useState(0);
 
   useEffect(() => {
     if (pathname === "/manager/login") return;
     if (pathname === "/manager/notifications") {
       window.localStorage.setItem("zivira.manager.notices.lastSeen", new Date().toISOString());
       setHasUnread(false);
+      setNewCount(0);
       return;
     }
     let cancelled = false;
     const check = () => {
       apiClient.notices().then((r) => {
-        if (cancelled || !r.data.length) return;
+        if (cancelled) return;
+        setRecentNotices(r.data.slice(0, 5));
+        if (!r.data.length) { setNewCount(0); return; }
         const lastSeen = window.localStorage.getItem("zivira.manager.notices.lastSeen");
-        const unread = !lastSeen || new Date(r.data[0].createdAt).getTime() > new Date(lastSeen).getTime();
-        setHasUnread(unread);
+        const lastSeenMs = lastSeen ? new Date(lastSeen).getTime() : 0;
+        const unseenCount = r.data.filter((n) => new Date(n.createdAt).getTime() > lastSeenMs).length;
+        setHasUnread(unseenCount > 0);
+        setNewCount(unseenCount);
       }).catch(() => {});
     };
     check();
@@ -191,21 +216,21 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
               <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 py-2">
                 <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Team Alerts</span>
-                  <span className="text-[10px] bg-brand-100 text-brand-800 dark:bg-brand-950 dark:text-brand-300 font-bold px-1.5 py-0.5 rounded">3 New</span>
+                  {newCount > 0 && (
+                    <span className="text-[10px] bg-brand-100 text-brand-800 dark:bg-brand-950 dark:text-brand-300 font-bold px-1.5 py-0.5 rounded">{newCount} New</span>
+                  )}
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                  <Link href="/manager/notifications" className="block px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                    <p className="font-medium text-slate-800 dark:text-slate-200">Rahul Deshmukh submitted DCR</p>
-                    <p className="text-slate-400 text-[11px] mt-0.5">Chennai HQ · 6 calls recorded · 10m ago</p>
-                  </Link>
-                  <Link href="/manager/notifications" className="block px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                    <p className="font-medium text-slate-800 dark:text-slate-200">New Tour Plan approval request</p>
-                    <p className="text-slate-400 text-[11px] mt-0.5">Anjali Menon · Pune to Baramati · 45m ago</p>
-                  </Link>
-                  <Link href="/manager/notifications" className="block px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                    <p className="font-medium text-amber-600 dark:text-amber-400">Expense claim awaiting audit</p>
-                    <p className="text-slate-400 text-[11px] mt-0.5">Priya dharshini · ₹3,450 travel allowance · 2h ago</p>
-                  </Link>
+                  {recentNotices.length === 0 ? (
+                    <p className="px-4 py-4 text-slate-400 text-center">No alerts yet.</p>
+                  ) : (
+                    recentNotices.map((n) => (
+                      <Link href="/manager/notifications" key={n.id} className="block px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                        <p className={clsx("font-medium", n.priority === "URGENT" ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-200")}>{n.title}</p>
+                        <p className="text-slate-400 text-[11px] mt-0.5">{n.message} · {timeAgo(n.createdAt)}</p>
+                      </Link>
+                    ))
+                  )}
                 </div>
               </div>
             )}
