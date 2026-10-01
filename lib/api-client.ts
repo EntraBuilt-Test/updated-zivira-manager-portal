@@ -15,6 +15,18 @@ export type ManagerNotice = {
   createdAt: string;
 };
 
+// Item 3 (post-launch robustness round) -- team leave entitlement/balance,
+// read from the same real leaveEntitlementEntry collection admin's Leave
+// Entitlement - Entry screen writes to (and the field rep's own balance
+// cards read from, per-employee).
+export type TeamLeaveEntitlement = {
+  id: string;
+  fieldForceName?: string;
+  year?: string;
+  balanceCl?: number; balancePl?: number; balanceSl?: number; balanceLop?: number;
+  cl?: number; pl?: number; sl?: number; lop?: number;
+};
+
 // Request E, item 1 — every other active manager in the tenant, for the
 // Tour Plan reassign modal's manager picker. Via GET /manager/managers.
 export type ManagerListItem = {
@@ -212,6 +224,7 @@ export const apiClient = {
   // New "Leave Apply" tab — team leave requests submitted from the
   // FieldRepo Leave tab, reviewed here.
   leaveApplications: () => request<LeaveApplication[]>("/manager/leave-applications"),
+  teamLeaveEntitlement: () => request<TeamLeaveEntitlement[]>("/manager/leave-entitlement"),
   approveLeave: (id: string) => request<LeaveApplication>(`/manager/leave-applications/${id}/approve`, { method: "POST" }),
   rejectLeave: (id: string, reason?: string) =>
     request<LeaveApplication>(`/manager/leave-applications/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
