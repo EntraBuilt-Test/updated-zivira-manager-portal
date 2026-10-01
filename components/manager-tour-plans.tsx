@@ -1,6 +1,6 @@
 "use client";
 import type { TourPlan } from "@zivira/types";
-import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, MoreVertical, Search, Download, History, AlertTriangle, Verified, CheckCircle, Clock } from "lucide-react";
+import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, MoreVertical, Search, Download, History, AlertTriangle, Verified, CheckCircle, Clock, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
 import { apiClient, type ManagerListItem } from "@/lib/api-client";
 
@@ -39,6 +39,7 @@ export function ManagerTourPlans() {
   const [batchResult, setBatchResult] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [detailsTarget, setDetailsTarget] = useState<TourPlan | null>(null);
+  const [deletingTpId, setDeletingTpId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -113,6 +114,23 @@ export function ManagerTourPlans() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  // Item B (post-launch robustness round) -- manager equivalent of the field
+  // delete: real server-side delete (backend also clears the mirrored
+  // approvalTp master row), scoped server-side to this manager's own chain.
+  async function deleteTourPlan(tpId: string) {
+    if (!window.confirm("Delete Tour Plan " + tpId + "? This cannot be undone.")) return;
+    setDeletingTpId(tpId);
+    setError("");
+    try {
+      await apiClient.deleteTourPlan(tpId);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete Tour Plan");
+    } finally {
+      setDeletingTpId(null);
+    }
   }
 
   async function runAction() {
@@ -446,6 +464,11 @@ export function ManagerTourPlans() {
                         <button onClick={() => setDetailsTarget(tp)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors" title="More Options" type="button">
                           <MoreVertical size={16} />
                         </button>
+                        {isMine && (
+                          <button disabled={deletingTpId === tp.tpId} onClick={() => deleteTourPlan(tp.tpId)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center justify-center transition-colors disabled:opacity-50" title="Delete" type="button">
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

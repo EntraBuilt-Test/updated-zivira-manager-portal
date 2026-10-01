@@ -173,6 +173,7 @@ export const apiClient = {
   approveTourPlan: (tpId: string) => request<TourPlan>(`/manager/tour-plans/${tpId}/approve`, { method: "PATCH" }),
   rejectTourPlan: (tpId: string, reason?: string) => request<TourPlan>(`/manager/tour-plans/${tpId}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
   voidTourPlan: (tpId: string, reason: string) => request<TourPlan>(`/manager/tour-plans/${tpId}/void`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+  deleteTourPlan: (tpId: string) => request<{ deleted: boolean; tpId: string }>(`/manager/tour-plans/${tpId}`, { method: "DELETE" }),
   // Request E, item 1 — reassign must actually redirect the Tour Plan to
   // whichever manager the caller picks (targetManager: code or name),
   // instead of silently recreating it under the caller themselves.
