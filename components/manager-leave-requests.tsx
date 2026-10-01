@@ -1,6 +1,6 @@
 "use client";
 import type { LeaveApplication } from "@zivira/types";
-import { Check, RefreshCw, X, Calendar, Download, CheckCircle2, Shield, Search, Briefcase, Stethoscope, Home, UserCheck, Users, Eye, MoreVertical, PartyPopper } from "lucide-react";
+import { Check, RefreshCw, X, Calendar, Download, CheckCircle2, Shield, Search, Briefcase, Stethoscope, Home, UserCheck, Users, Eye, MoreVertical, PartyPopper, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
 import { apiClient } from "@/lib/api-client";
 
@@ -47,6 +47,7 @@ export function ManagerLeaveRequests() {
   const [batchApproving, setBatchApproving] = useState(false);
   const [viewRow, setViewRow] = useState<LeaveApplication | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletingLeaveId, setDeletingLeaveId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -74,6 +75,18 @@ export function ManagerLeaveRequests() {
     try { await apiClient.rejectLeave(rejectId, rejectReason); setRejectId(null); setRejectReason(""); await load(); }
     catch (e) { setError(e instanceof Error ? e.message : "Rejection failed"); }
     finally { setActing(null); }
+  }
+
+  // Coordinator follow-up round -- real server-side delete, gated to
+  // PENDING/REJECTED requests only. An APPROVED leave is blocked
+  // server-side, pointing at the existing Leave Cancellation (After
+  // Approval) admin flow instead of a raw delete bypassing it.
+  async function deleteLeave(id: string) {
+    if (!window.confirm("Delete this leave request? This cannot be undone.")) return;
+    setDeletingLeaveId(id);
+    try { await apiClient.deleteLeaveApplication(id); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed to delete this leave request"); }
+    finally { setDeletingLeaveId(null); }
   }
 
   const pendingCount = rows.filter(r => r.status === "PENDING").length;
@@ -440,6 +453,16 @@ export function ManagerLeaveRequests() {
                                 className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                               >
                                 <Eye size={14} /> View details
+                              </button>
+                            )}
+                            {row.status !== "APPROVED" && (
+                              <button
+                                type="button"
+                                disabled={deletingLeaveId === row.id}
+                                onClick={() => { setOpenMenuId(null); void deleteLeave(row.id); }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-2 disabled:opacity-50"
+                              >
+                                <Trash2 size={14} /> Delete
                               </button>
                             )}
                           </div>

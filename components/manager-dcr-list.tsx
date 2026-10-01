@@ -1,6 +1,6 @@
 "use client";
 import type { DcrExtended } from "@zivira/types";
-import { Check, RefreshCw, X, Search, Calendar, Download, AlertCircle } from "lucide-react";
+import { Check, RefreshCw, X, Search, Calendar, Download, AlertCircle, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
 import { apiClient } from "@/lib/api-client";
 
@@ -67,6 +67,7 @@ export function ManagerDcrList() {
   const [rejectReason, setRejectReason] = useState("");
   const [acting, setActing] = useState<string | null>(null);
   const [batchApproving, setBatchApproving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sessionFilter, setSessionFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -97,6 +98,18 @@ export function ManagerDcrList() {
     try { await apiClient.rejectDcr(rejectId, rejectReason); setRejectId(null); setRejectReason(""); await load(); }
     catch (e) { setError(e instanceof Error ? e.message : "Rejection failed"); }
     finally { setActing(null); }
+  }
+
+  // Coordinator follow-up round -- real server-side delete, gated to
+  // SUBMITTED/REJECTED DCRs only (backend enforces this too). Also reverts
+  // any campaign visit this DCR closed out and removes the mirrored
+  // admin approval-queue row.
+  async function deleteDcr(id: string) {
+    if (!window.confirm("Delete this DCR? This cannot be undone.")) return;
+    setDeletingId(id);
+    try { await apiClient.deleteDcr(id); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed to delete this DCR"); }
+    finally { setDeletingId(null); }
   }
 
   const pendingCount = dcrs.filter(d => d.status === "SUBMITTED").length;
@@ -420,11 +433,21 @@ export function ManagerDcrList() {
                           <button disabled={acting === dcr.id} onClick={() => { setRejectId(dcr.id); setRejectReason(""); }} className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 shadow-xs transition-colors disabled:opacity-50" type="button">
                             Reject
                           </button>
+                          <button disabled={deletingId === dcr.id} onClick={() => deleteDcr(dcr.id)} title="Delete" className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50" type="button">
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       ) : (
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${sc.bg} ${sc.color} ${sc.border} dark:bg-opacity-20`}>
-                          {sc.icon} {dcr.status.replace("_", " ")}
-                        </span>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${sc.bg} ${sc.color} ${sc.border} dark:bg-opacity-20`}>
+                            {sc.icon} {dcr.status.replace("_", " ")}
+                          </span>
+                          {dcr.status === "REJECTED" && (
+                            <button disabled={deletingId === dcr.id} onClick={() => deleteDcr(dcr.id)} title="Delete" className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50" type="button">
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -158,6 +158,7 @@ export const apiClient = {
   dcrs:      () => request<DcrExtended[]>("/manager/dcrs"),
   approveDcr: (id: string) => request<DcrExtended>(`/manager/dcrs/${id}/approve`, { method: "POST" }),
   rejectDcr:  (id: string, reason?: string) => request<DcrExtended>(`/manager/dcrs/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+  deleteDcr: (id: string) => request<{ deleted: boolean; id: string }>(`/manager/dcrs/${id}`, { method: "DELETE" }),
   employees: () => request<Employee[]>("/company/employees"),
   createEmployee: (input: Omit<Employee, "id" | "tenantSlug" | "createdAt" | "updatedAt">) =>
     request<Employee>("/company/employees", { method: "POST", body: JSON.stringify(input) }),
@@ -206,6 +207,7 @@ export const apiClient = {
   approveExpenseClaim: (claimId: string) => request<ExpenseClaim>(`/manager/expense-claims/${claimId}/approve`, { method: "PATCH" }),
   rejectExpenseClaim: (claimId: string, reason: string) =>
     request<ExpenseClaim>(`/manager/expense-claims/${claimId}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+  deleteExpenseClaim: (claimId: string) => request<{ deleted: boolean; claimId: string }>(`/manager/expense-claims/${claimId}`, { method: "DELETE" }),
 
   // New "Leave Apply" tab — team leave requests submitted from the
   // FieldRepo Leave tab, reviewed here.
@@ -213,6 +215,7 @@ export const apiClient = {
   approveLeave: (id: string) => request<LeaveApplication>(`/manager/leave-applications/${id}/approve`, { method: "POST" }),
   rejectLeave: (id: string, reason?: string) =>
     request<LeaveApplication>(`/manager/leave-applications/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+  deleteLeaveApplication: (id: string) => request<{ deleted: boolean; id: string }>(`/manager/leave-applications/${id}`, { method: "DELETE" }),
 
   // Phase 1 — Campaign Planning & Execution team visibility
   campaignVisits: (date?: string) =>

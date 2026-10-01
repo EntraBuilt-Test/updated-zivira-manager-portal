@@ -1,6 +1,6 @@
 "use client";
 import type { ExpenseClaim } from "@zivira/types";
-import { Check, Receipt, RefreshCw, Users, X, Shield, Search, FileText } from "lucide-react";
+import { Check, Receipt, RefreshCw, Users, X, Shield, Search, FileText, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 
@@ -13,6 +13,7 @@ export function ManagerExpenseClaims() {
   const [rejectTarget, setRejectTarget] = useState<ExpenseClaim | null>(null);
   const [reason, setReason] = useState("");
   const [acting, setActing] = useState(false);
+  const [deletingClaimId, setDeletingClaimId] = useState<string | null>(null);
   const [claimsTab, setClaimsTab] = useState<"all" | "pending" | "approved">("all");
 
   useEffect(() => {
@@ -46,6 +47,18 @@ export function ManagerExpenseClaims() {
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Reject failed"); }
     finally { setActing(false); }
+  }
+
+  // Coordinator follow-up round -- real server-side delete, gated to
+  // SUBMITTED/REJECTED claims only (an approved/settled claim is blocked
+  // server-side); backend also reverses the amount out of the
+  // Expense Approval (Active) mirror.
+  async function deleteClaim(claimId: string) {
+    if (!window.confirm("Delete expense claim " + claimId + "? This cannot be undone.")) return;
+    setDeletingClaimId(claimId);
+    try { await apiClient.deleteExpenseClaim(claimId); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed to delete this claim"); }
+    finally { setDeletingClaimId(null); }
   }
 
   const pendingCount = claims.filter(c => c.status === "SUBMITTED").length;
@@ -334,6 +347,11 @@ export function ManagerExpenseClaims() {
                             Query / Reject
                           </button>
                         </div>
+                      )}
+                      {c.status === "REJECTED" && isMine && (
+                        <button disabled={deletingClaimId === c.claimId} onClick={() => deleteClaim(c.claimId)} title="Delete" className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition disabled:opacity-50">
+                          <Trash2 size={14} />
+                        </button>
                       )}
                     </td>
                   </tr>
