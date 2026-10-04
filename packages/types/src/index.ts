@@ -395,6 +395,7 @@ export type ExpenseClaim = {
   category: ExpenseClaimCategory;
   expenseDate: string;
   amountRs: number;
+  distanceKms?: number;
   description?: string;
   status: ExpenseClaimStatus;
   approvedBy?: string;

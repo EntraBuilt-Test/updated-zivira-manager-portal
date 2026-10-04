@@ -306,7 +306,7 @@ export function ManagerExpenseClaims() {
                     </td>
                     <td className="py-4 px-3">
                       <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold text-[11px]">
-                        {c.category}
+                        {c.category}{c.distanceKms ? ` · ${c.distanceKms} km` : ""}
                       </div>
                     </td>
                     <td className="py-4 px-3 whitespace-nowrap text-slate-600 dark:text-slate-400 font-medium">

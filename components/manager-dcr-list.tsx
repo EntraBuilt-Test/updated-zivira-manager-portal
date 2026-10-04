@@ -28,6 +28,7 @@ const INTEREST_COLORS: Record<string, string> = {
 
 function feedbackTitle(dcr: DcrExtended) {
   const parts: string[] = [];
+  if (dcr.submissionChannel) parts.push(`Channel: ${dcr.submissionChannel}`);
   if (dcr.hospitalClinic) parts.push(`Hospital/Clinic: ${dcr.hospitalClinic}`);
   if (dcr.checkInTime || dcr.checkOutTime) parts.push(`Visit: ${dcr.checkInTime ?? "—"} to ${dcr.checkOutTime ?? "—"}${dcr.visitDurationMinutes ? ` (${dcr.visitDurationMinutes} min)` : ""}`);
   if (dcr.productFeedback) parts.push(`Feedback: ${dcr.productFeedback}`);
