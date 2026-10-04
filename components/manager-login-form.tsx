@@ -3,11 +3,12 @@
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiClient, setToken } from "@/lib/api-client";
 
 export function ManagerLoginForm() {
   const router = useRouter();
+  useEffect(() => { void apiClient.warmUp(); }, []);
   const [username, setUsername] = useState("abm-001");
   const [password, setPassword] = useState("Zivirachennai");
   const [error, setError] = useState("");

@@ -1987,3 +1987,10 @@ tr:last-child td {
 .sidebar-toggle-btn {
   flex-shrink: 0;
 }
+
+/* Round 39 item 8 -- reserve the scrollbar gutter so opening a dropdown that
+   extends the page cannot shift the layout sideways; native selects open
+   instantly (no transition). */
+html { overflow-y: scroll; scrollbar-gutter: stable; }
+body { overflow-anchor: none; }
+select { transition: none !important; }
