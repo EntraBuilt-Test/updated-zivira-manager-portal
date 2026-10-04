@@ -59,6 +59,16 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
 
 const PAGE_SIZE = 20;
 
+// Round 41 -- the POB (per product qty/value, overall amount) and Rx quantities
+// the rep entered on the DCR. Blank on DCRs submitted before capture existed.
+function pobRxSummary(d: { pob?: { productName: string; qty: number; valueRs?: number }[]; pobAmountRs?: number | null; rxItems?: { productName: string; qty: number }[] }): string {
+  const parts: string[] = [];
+  for (const p of d.pob ?? []) parts.push(`POB ${p.productName} x${p.qty}${p.valueRs ? ` (Rs ${p.valueRs})` : ""}`);
+  if (d.pobAmountRs) parts.push(`POB Rs ${d.pobAmountRs}`);
+  for (const r of d.rxItems ?? []) parts.push(`Rx ${r.productName} x${r.qty}`);
+  return parts.join("; ");
+}
+
 export function ManagerDcrList() {
   const [dcrs, setDcrs] = useState<DcrExtended[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +162,9 @@ export function ManagerDcrList() {
       punchInTime: dcr.punchInTime ?? "",
       punchOutTime: dcr.punchOutTime ?? "",
       products: (dcr.productsDetailed ?? []).join("; "),
+      pob: (dcr.pob ?? []).map(p => `${p.productName} x${p.qty}${p.valueRs ? ` (Rs ${p.valueRs})` : ""}`).join("; "),
+      pobAmountRs: dcr.pobAmountRs ?? "",
+      rx: (dcr.rxItems ?? []).map(r => `${r.productName} x${r.qty}`).join("; "),
       status: dcr.status,
     }));
     downloadCsv(`team-dcrs-${new Date().toISOString().slice(0, 10)}.csv`, rows);
@@ -332,6 +345,7 @@ export function ManagerDcrList() {
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-3 min-w-[120px]">SAMPLES</th>
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-3 min-w-[110px]">INPUTS</th>
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-3 min-w-[150px]">JOINT WORK</th>
+                <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-3 text-center">POB / RX</th>
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-3 text-center">FEEDBACK</th>
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-3 text-center">OVERRIDE</th>
                 <th className="text-slate-500 dark:text-white  bg-slate-50 dark:bg-slate-900 py-3 px-4 text-center min-w-[150px]">STATUS & ACTIONS</th>
@@ -409,6 +423,9 @@ export function ManagerDcrList() {
                       ) : (
                         <span className="px-2 py-0.5 rounded text-[10px] text-slate-400 font-normal bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 dark:bg-slate-800 dark:border-slate-700">Solo Call</span>
                       )}
+                    </td>
+                    <td className="py-3.5 px-3 text-[11px] text-slate-700 dark:text-slate-300" title={pobRxSummary(dcr)}>
+                      {pobRxSummary(dcr) ? pobRxSummary(dcr).split("; ").map((line, idx) => <div key={idx}>{line}</div>) : <span className="text-slate-400">—</span>}
                     </td>
                     <td className="py-3.5 px-3 text-center whitespace-nowrap" title={feedbackTitle(dcr)}>
                       {dcr.prescriptionInterest ? (
