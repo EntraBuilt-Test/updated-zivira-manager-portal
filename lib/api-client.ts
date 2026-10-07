@@ -179,7 +179,14 @@ export type ManagerDocument = {
   uploadedOn?: string | null;
 };
 
+import type { InfoFeed } from "@/components/info-popups";
+import type { TalkTicket } from "@/components/talk-to-us";
 export const apiClient = {
+  // Round 48 Part D
+  infoFeed() { return request<InfoFeed>("/manager/info-center/feed"); },
+  talkList() { return request<TalkTicket[]>("/manager/info-center/talk"); },
+  talkCreate(subject: string, message: string) { return request<TalkTicket>("/manager/info-center/talk", { method: "POST", body: JSON.stringify({ subject, message }) }); },
+  talkReply(id: string, message: string) { return request<TalkTicket>(`/manager/info-center/talk/${id}/reply`, { method: "POST", body: JSON.stringify({ message }) }); },
   // Round 39 item 1 -- fired when a login page opens so a sleeping backend
   // starts waking while the user types credentials.
   warmUp: () => fetch(`${API_BASE_URL}/health`, { cache: "no-store" }).catch(() => undefined),

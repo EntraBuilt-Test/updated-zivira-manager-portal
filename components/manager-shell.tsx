@@ -1,13 +1,14 @@
 "use client";
 import clsx from "clsx";
 import { 
-  BarChart3, Bell, CalendarOff, FileText, Grid3x3, Home, LogOut, MapPinned, Moon, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown, ClipboardCheck, Stethoscope
+  BarChart3, Bell, CalendarOff, FileText, Grid3x3, Home, LogOut, MapPinned, Moon, Receipt, ShieldAlert, Sun, Users, UsersRound, Megaphone, ChevronDown, ClipboardCheck, Stethoscope, MessageCircle
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiClient, clearToken, type ManagerNotice } from "@/lib/api-client";
+import { InfoAnnouncements } from "@/components/info-popups";
 
 // Round G item 3 — the bell dropdown preview used to render 3 hardcoded
 // fake alerts ("Rahul Deshmukh submitted DCR", "Anjali Menon ...", "Priya
@@ -64,8 +65,11 @@ const baseNav: BaseNavItem[] = [
   // Upload Designation-wise, filtered to this manager's own designation)
   // and Manuals (User Manual Upload), neither of which had any manager-
   // side screen before. GET /manager/circulars + /manager/manuals.
-  { href: "/manager/documents",      title: "Documents",        icon: FileText }
+  { href: "/manager/documents",      title: "Documents",        icon: FileText },
+  { href: "/manager/talk-to-us",     title: "Talk to Us",       icon: MessageCircle }
 ];
+
+const loadInfoFeed = () => apiClient.infoFeed().then((r) => r.data);
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -350,6 +354,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950">
           <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+            <InfoAnnouncements load={loadInfoFeed} />
             {children}
           </div>
         </main>
