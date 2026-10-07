@@ -22,6 +22,8 @@ export function ManagerLoginForm() {
     try {
       const response = await apiClient.login(username, password);
       setToken(response.data.token);
+      // Round 48 Part C -- warm the first screen's data while the router navigates.
+      void apiClient.dashboard().catch(() => undefined);
       router.push("/manager/dashboard");
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Login failed");

@@ -1,4 +1,5 @@
 import type { ApiEnvelope, CompanyDashboard, DcrExtended, Doctor, Employee, ManagerDashboard, Product, TourPlan, VisitCoverageGrid, ExpenseClaim, ComplianceResponse, EmployeeComplianceRow, PayrollResponse, PayrollStatusRecord, RepManagerTeamResponse, RepAnalysisRow, LeaveApplication } from "@zivira/types";
+import { fetchWithRetry } from "@/lib/resilience";
 
 // Item 3 — real cross-portal notifications for the Manager portal. Not
 // (yet) part of the shared @zivira/types package, so declared locally here
@@ -113,7 +114,7 @@ export function clearToken() { window.localStorage.removeItem(TOKEN_KEY); }
 // forever (previously: no timeout at all, and a non-JSON 502 from the
 // host's proxy threw a cryptic "Unexpected token <").
 const REQUEST_TIMEOUT_MS = 30000;
-async function fetchWithTimeout(url: string, init: RequestInit = {}) {
+async function fetchWithTimeoutOnce(url: string, init: RequestInit = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -127,6 +128,11 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}) {
     clearTimeout(timer);
   }
 }
+// Round 48 Part C -- idempotent GETs retry with back-off while a sleeping host wakes (see lib/resilience.ts).
+function fetchWithTimeout(url: string, init: RequestInit = {}) {
+  return fetchWithRetry(() => fetchWithTimeoutOnce(url, init), init.method ?? "GET");
+}
+
 async function readJson(response: Response) {
   try {
     return await response.json();

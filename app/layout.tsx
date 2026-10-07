@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { WakingBanner } from "@/components/waking-banner";
 
 export const metadata: Metadata = {
   title: "Zivira Labs Company Admin",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><WakingBanner apiBase={process.env.NEXT_PUBLIC_API_URL ?? "https://zivira-backend-swagger-ui.onrender.com/api"} tokenKey="zivira.manager.token" />{children}</body>
     </html>
   );
 }
