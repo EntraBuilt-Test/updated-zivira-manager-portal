@@ -4,6 +4,7 @@ import { RefreshCw, Users, Search, Download } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
+import { NoticeCard, QuoteCard } from "@/components/info-popups";
 
 // No shared CSV helper exists in this repo (lib/download-csv.ts) — build a
 // small self-contained CSV export, mirroring the exact fields shown in the
@@ -31,11 +32,7 @@ export function ManagerDashboardPanel() {
   const router = useRouter();
   const [data, setData] = useState<ManagerDashboard | null>(null);
   const [teamDcrs, setTeamDcrs] = useState<DcrExtended[]>([]);
-  // Item 12 (post-launch robustness round) -- real Flash News/Quote of the
-  // Week values, surfaced here for the first time (previously admin-only).
-  const [flashNews, setFlashNews] = useState<string | null>(null);
-  const [quoteOfWeek, setQuoteOfWeek] = useState<string | null>(null);
-  const [noticeBoard, setNoticeBoard] = useState<string[] | null>(null);
+  // Notice Board / Quote cards read the shared Information Upload feed (components/info-popups); Flash shows only as the ticker.
   const [talkToUs, setTalkToUs] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,16 +52,8 @@ export function ManagerDashboardPanel() {
       setTeamDcrs(dcrsRes.data);
       try {
         const annRes = await apiClient.announcements();
-        setFlashNews(annRes.data.flashNews?.content?.trim() || null);
-        setQuoteOfWeek(annRes.data.quoteOfTheWeek?.quote?.trim() || null);
-        const nb = annRes.data.noticeBoard;
-        const notices = nb ? [nb.content1, nb.content2, nb.content3].map((s) => s?.trim()).filter((s): s is string => !!s) : [];
-        setNoticeBoard(notices.length ? notices : null);
         setTalkToUs(annRes.data.talkToUs?.content?.trim() || null);
       } catch {
-        setFlashNews(null);
-        setQuoteOfWeek(null);
-        setNoticeBoard(null);
         setTalkToUs(null);
       }
     }
@@ -119,27 +108,15 @@ export function ManagerDashboardPanel() {
 
   return (
     <>
-      {(quoteOfWeek || noticeBoard || talkToUs) && (
-        <div className="space-y-2 mb-4">
-          {noticeBoard && (
-            <div className="rounded-lg border border-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:border-sky-800 dark:text-sky-200 px-3 py-2 text-[11px] text-sky-900">
-              <div className="font-bold uppercase tracking-wide text-[10px] mb-0.5">Notice Board</div>
-              {noticeBoard.map((n, i) => <div key={i}>{n}</div>)}
-            </div>
-          )}
-          {quoteOfWeek && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 dark:bg-indigo-950/30 dark:border-indigo-800 dark:text-indigo-200 px-3 py-2 text-[11px] text-indigo-900">
-              <div className="font-bold uppercase tracking-wide text-[10px] mb-0.5">Quote for the Week</div>
-              <div className="italic">&ldquo;{quoteOfWeek}&rdquo;</div>
-            </div>
-          )}
-          {talkToUs && (
+      <div className="space-y-2 mb-4">
+        <NoticeCard />
+        <QuoteCard />
+        {talkToUs && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
               <span className="font-bold uppercase tracking-wide mr-1">Talk to Us</span>{talkToUs}
             </div>
           )}
         </div>
-      )}
       {/* Section Header */}
       <section className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
