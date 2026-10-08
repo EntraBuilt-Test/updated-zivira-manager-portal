@@ -22,6 +22,14 @@ export type ManagerNotice = {
 // read from the same real leaveEntitlementEntry collection admin's Leave
 // Entitlement - Entry screen writes to (and the field rep's own balance
 // cards read from, per-employee).
+export type TeamLeaveRecord = {
+  id: string; leaveType: string; fromDate: string; toDate: string; days: number; reason?: string; status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  statusLabel: string; statusDate: string | null; statusRemarks: string; approvalHistory?: { action: string; byRole?: string; byName?: string; at?: string; remarks?: string }[];
+};
+export type TeamLeaveMember = {
+  employeeCode: string; name: string; designation?: string; territory?: string; isDirectReport: boolean;
+  counts: { pending: number; approved: number; rejected: number; cancelled: number }; approvedDays: number; leaves: TeamLeaveRecord[];
+};
 export type TeamLeaveEntitlement = {
   id: string;
   fieldForceName?: string;
@@ -185,7 +193,7 @@ import type { InfoFeed } from "@/components/info-popups";
 import type { TalkTicket } from "@/components/talk-to-us";
 export const apiClient = {
   // Round 48 Part D
-  infoFeed() { return request<InfoFeed>("/manager/info-center/feed"); },
+  infoFeed() { return request<InfoFeed>("/manager/info-center/feed", { cache: "no-store" }); },
   talkList() { return request<TalkTicket[]>("/manager/info-center/talk"); },
   talkCreate(subject: string, message: string) { return request<TalkTicket>("/manager/info-center/talk", { method: "POST", body: JSON.stringify({ subject, message }) }); },
   talkReply(id: string, message: string) { return request<TalkTicket>(`/manager/info-center/talk/${id}/reply`, { method: "POST", body: JSON.stringify({ message }) }); },
@@ -270,6 +278,8 @@ export const apiClient = {
   // FieldRepo Leave tab, reviewed here.
   leaveApplications: () => request<LeaveApplication[]>("/manager/leave-applications"),
   teamLeaveEntitlement: () => request<TeamLeaveEntitlement[]>("/manager/leave-entitlement"),
+  // Round 60 -- everyone below this manager, each with their leave list, decision labels and history
+  teamLeave: (employeeCode?: string) => request<TeamLeaveMember[]>(`/manager/team-leave${employeeCode ? `?employeeCode=${encodeURIComponent(employeeCode)}` : ""}`),
   approveLeave: (id: string) => request<LeaveApplication>(`/manager/leave-applications/${id}/approve`, { method: "POST" }),
   rejectLeave: (id: string, reason?: string) =>
     request<LeaveApplication>(`/manager/leave-applications/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
