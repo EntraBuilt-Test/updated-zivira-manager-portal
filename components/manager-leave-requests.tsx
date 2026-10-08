@@ -1,4 +1,5 @@
 "use client";
+import { decidedText, historyLines } from "@/lib/approval-display";
 import type { LeaveApplication } from "@zivira/types";
 import { Check, RefreshCw, X, Calendar, Download, CheckCircle2, Shield, Search, Briefcase, Stethoscope, Home, UserCheck, Users, Eye, MoreVertical, PartyPopper, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
@@ -7,7 +8,8 @@ import { apiClient } from "@/lib/api-client";
 const STATUS_COLORS: Record<string, { bg: string; color: string; border: string; icon: ReactNode; badgeBg: string }> = {
   PENDING:  { bg: "bg-amber-50/25", color: "text-amber-900", border: "border-l-4 border-l-amber-500", icon: <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />, badgeBg: "bg-amber-100 border-amber-300" },
   APPROVED: { bg: "", color: "text-emerald-800", border: "", icon: <Check size={12} className="stroke-[3]" />, badgeBg: "bg-emerald-100/80 border-emerald-200" },
-  REJECTED: { bg: "", color: "text-rose-800", border: "", icon: <X size={12} className="stroke-[3]" />, badgeBg: "bg-rose-100/80 border-rose-200" }
+  REJECTED: { bg: "", color: "text-rose-800", border: "", icon: <X size={12} className="stroke-[3]" />, badgeBg: "bg-rose-100/80 border-rose-200" },
+  CANCELLED: { bg: "", color: "text-slate-700", border: "", icon: <X size={12} className="stroke-[3]" />, badgeBg: "bg-slate-100 border-slate-300" }
 };
 
 const LEAVE_TYPE_ICONS: Record<string, { icon: ReactNode; bg: string; text: string }> = {
@@ -212,13 +214,22 @@ export function ManagerLeaveRequests() {
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Employee Code</span><span className="font-mono font-bold text-emerald-800 dark:text-emerald-400">{viewRow.employeeCode}</span></div>
-              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Status</span><span className="font-bold">{viewRow.status}</span></div>
+              <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Status</span><span className="font-bold">{decidedText(viewRow, viewRow.status)}</span></div>
               <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Leave Type</span><span className="font-medium">{viewRow.leaveType}</span></div>
               <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Days</span><span className="font-medium">{viewRow.days}</span></div>
               <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">From</span><span className="font-medium">{formatDateFull(viewRow.fromDate)}</span></div>
               <div><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">To</span><span className="font-medium">{formatDateFull(viewRow.toDate)}</span></div>
               {viewRow.reason && (
                 <div className="col-span-2"><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Reason</span><span className="font-medium">{viewRow.reason}</span></div>
+              )}
+              {(viewRow as any).status === "CANCELLED" && (viewRow as any).cancelReason && (
+                <div className="col-span-2"><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Cancellation Reason</span><span className="font-medium text-rose-600">{(viewRow as any).cancelReason}</span></div>
+              )}
+              {historyLines(viewRow).length > 0 && (
+                <div className="col-span-2 text-[11px] text-slate-500 space-y-0.5">
+                  <span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">History</span>
+                  {historyLines(viewRow).map((l, i) => <div key={i}>{l}</div>)}
+                </div>
               )}
               {viewRow.status === "REJECTED" && viewRow.rejectReason && (
                 <div className="col-span-2"><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Reject Reason</span><span className="font-medium text-rose-600">{viewRow.rejectReason}</span></div>
@@ -406,7 +417,7 @@ export function ManagerLeaveRequests() {
                     </td>
                     <td className="py-3.5 px-3 text-center whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${sc.badgeBg} ${sc.color} font-bold text-[11px] tracking-wide border dark:bg-opacity-20`}>
-                        {sc.icon} {row.status}
+                        {sc.icon} {decidedText(row, row.status)}
                       </span>
                     </td>
                     <td className="py-3.5 pr-4 pl-2 text-right">

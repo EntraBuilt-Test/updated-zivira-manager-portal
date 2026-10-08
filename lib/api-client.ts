@@ -7,6 +7,8 @@ import { fetchWithRetry } from "@/lib/resilience";
 // (src/models/notice.model.ts) via GET /manager/notices.
 export type ManagerNotice = {
   id: string;
+  type?: string;
+  link?: string;
   title: string;
   message: string;
   audience: "ALL" | "MR" | "MANAGER" | "ADMIN";

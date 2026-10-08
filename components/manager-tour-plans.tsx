@@ -1,4 +1,5 @@
 "use client";
+import { decidedText, historyLines } from "@/lib/approval-display";
 import type { TourPlan } from "@zivira/types";
 import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, MoreVertical, Search, Download, History, AlertTriangle, Verified, CheckCircle, Clock, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
@@ -429,7 +430,7 @@ export function ManagerTourPlans() {
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md ${sc.bg} ${sc.color} text-[11px] font-bold tracking-wide border dark:bg-opacity-20`}>
                         {sc.icon}
-                        {tp.status}
+                        {decidedText(tp, tp.status)}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 max-w-xs">
@@ -507,6 +508,11 @@ export function ManagerTourPlans() {
                 <span className="text-slate-500 dark:text-slate-400">Status</span>
                 <span className="font-semibold text-slate-900 dark:text-white">{detailsTarget.status}</span>
               </div>
+              {historyLines(detailsTarget).length > 0 && (
+                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-0.5">
+                  {historyLines(detailsTarget).map((l, i) => <div key={i}>{l}</div>)}
+                </div>
+              )}
               <div className="flex justify-between gap-3">
                 <span className="text-slate-500 dark:text-slate-400">Assigned Manager</span>
                 <span className="font-semibold text-slate-900 dark:text-white">{detailsTarget.assignedManagerName ?? detailsTarget.assignedManager}</span>

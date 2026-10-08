@@ -7,6 +7,7 @@
 // backend's utils/notify.ts). Polls GET /manager/notices every 20s — same
 // approach used for the FieldRepo portal's Item 1 notifications page.
 import { Bell, BellRing } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiClient, type ManagerNotice } from "@/lib/api-client";
 import { PageHeader } from "./page-components";
@@ -75,6 +76,7 @@ export function ManagerNotifications() {
                 {notice.priority === "URGENT" && <span className="badge badge-warning">Urgent</span>}
               </p>
               <p className="muted">{notice.message}</p>
+              {notice.link && notice.link.startsWith("/manager/") && <p style={{ fontSize: 12, marginTop: 4 }}><Link href={notice.link} className="link">Open</Link></p>}
               <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>{timeAgo(notice.createdAt)}</p>
             </article>
           ))}

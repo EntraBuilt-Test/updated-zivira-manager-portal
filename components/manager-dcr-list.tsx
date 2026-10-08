@@ -1,4 +1,5 @@
 "use client";
+import { decidedText, historyLines } from "@/lib/approval-display";
 import type { DcrExtended } from "@zivira/types";
 import { Check, RefreshCw, X, Search, Calendar, Download, AlertCircle, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
@@ -458,7 +459,7 @@ export function ManagerDcrList() {
                       ) : (
                         <div className="flex items-center justify-center gap-1.5">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${sc.bg} ${sc.color} ${sc.border} dark:bg-opacity-20`}>
-                            {sc.icon} {dcr.status.replace("_", " ")}
+                            {sc.icon} {decidedText(dcr, dcr.status.replace("_", " "))}
                           </span>
                           {dcr.status === "REJECTED" && (
                             <button disabled={deletingId === dcr.id} onClick={() => deleteDcr(dcr.id)} title="Delete" className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50" type="button">
