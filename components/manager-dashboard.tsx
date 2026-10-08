@@ -119,14 +119,8 @@ export function ManagerDashboardPanel() {
 
   return (
     <>
-      {(flashNews || quoteOfWeek || noticeBoard || talkToUs) && (
+      {(quoteOfWeek || noticeBoard || talkToUs) && (
         <div className="space-y-2 mb-4">
-          {flashNews && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
-              <span className="font-semibold uppercase tracking-wide text-[11px]">Flash News</span>
-              <span className="truncate">{flashNews}</span>
-            </div>
-          )}
           {quoteOfWeek && (
             <div className="rounded-lg border border-indigo-200 bg-indigo-50 dark:bg-indigo-950/30 dark:border-indigo-800 px-4 py-2.5 text-sm italic text-indigo-900 dark:text-indigo-200">
               &ldquo;{quoteOfWeek}&rdquo;
