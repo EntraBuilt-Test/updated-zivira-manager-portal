@@ -1,7 +1,7 @@
 "use client";
 import type { ExpenseClaim } from "@zivira/types";
-import { Check, Receipt, RefreshCw, Users, X, Shield, Search, FileText, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, RefreshCw, Users, X, Shield, Search, FileText, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 
 export function ManagerExpenseClaims() {
@@ -20,16 +20,16 @@ export function ManagerExpenseClaims() {
     apiClient.dashboard().then(r => setMyEmployeeCode(r.data.manager.employeeCode)).catch(() => {});
   }, []);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
       const res = crossTeam ? await apiClient.expenseClaimsCrossTeam() : await apiClient.expenseClaims();
       setClaims(res.data);
     } catch (e) { setError(e instanceof Error ? e.message : "Load failed"); }
     finally { setLoading(false); }
-  }
+  }, [crossTeam]);
 
-  useEffect(() => { void load(); }, [crossTeam]);
+  useEffect(() => { void load(); }, [load]);
 
   async function approve(claimId: string) {
     setActing(true);

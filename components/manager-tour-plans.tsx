@@ -1,7 +1,7 @@
 "use client";
 import { decidedText, historyLines } from "@/lib/approval-display";
 import type { TourPlan } from "@zivira/types";
-import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, MoreVertical, Search, Download, History, AlertTriangle, Verified, CheckCircle, Clock, Trash2 } from "lucide-react";
+import { Ban, Check, RefreshCw, Repeat, RotateCcw, Users, X, Copy, MoreVertical, Search, Download, History, AlertTriangle, CheckCircle, Clock, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
 import { apiClient, type ManagerListItem } from "@/lib/api-client";
 

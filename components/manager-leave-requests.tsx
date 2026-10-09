@@ -1,7 +1,7 @@
 "use client";
 import { decidedText, historyLines } from "@/lib/approval-display";
 import type { LeaveApplication } from "@zivira/types";
-import { Check, RefreshCw, X, Calendar, Download, CheckCircle2, Shield, Search, Briefcase, Stethoscope, Home, UserCheck, Users, Eye, MoreVertical, PartyPopper, Trash2 } from "lucide-react";
+import { Check, RefreshCw, X, Calendar, Download, CheckCircle2, Shield, Search, Briefcase, Stethoscope, Home, Eye, MoreVertical, PartyPopper, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";
 import { apiClient } from "@/lib/api-client";
 
@@ -222,8 +222,8 @@ export function ManagerLeaveRequests() {
               {viewRow.reason && (
                 <div className="col-span-2"><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Reason</span><span className="font-medium">{viewRow.reason}</span></div>
               )}
-              {(viewRow as any).status === "CANCELLED" && (viewRow as any).cancelReason && (
-                <div className="col-span-2"><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Cancellation Reason</span><span className="font-medium text-rose-600">{(viewRow as any).cancelReason}</span></div>
+              {viewRow.status === "CANCELLED" && viewRow.cancelReason && (
+                <div className="col-span-2"><span className="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Cancellation Reason</span><span className="font-medium text-rose-600">{viewRow.cancelReason}</span></div>
               )}
               {historyLines(viewRow).length > 0 && (
                 <div className="col-span-2 text-[11px] text-slate-500 space-y-0.5">

@@ -1,5 +1,5 @@
 "use client";
-import { decidedText, historyLines } from "@/lib/approval-display";
+import { decidedText } from "@/lib/approval-display";
 import type { DcrExtended } from "@zivira/types";
 import { Check, RefreshCw, X, Search, Calendar, Download, AlertCircle, Trash2 } from "lucide-react";
 import { useEffect, useState, ReactNode } from "react";

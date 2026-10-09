@@ -276,7 +276,7 @@ export function ManagerVisitCoverage() {
               {!loading && visibleRows.length === 0 && (
                 <tr><td colSpan={(grid?.mrs.length ?? 0) + 5} className="text-center text-slate-500 dark:text-slate-400 py-8">{(grid?.rows.length ?? 0) === 0 ? "No doctors mapped to your team yet" : "No doctors match this filter"}</td></tr>
               )}
-              {visibleRows.map((row, idx) => {
+              {visibleRows.map((row) => {
                 let docTotal = 0;
                 row.cells.forEach(c => docTotal += c.visitCount);
                 const isDeficit = docTotal === 0;
