@@ -17,8 +17,8 @@ export function ManagerTeamList() {
     name: "",
     employeeCode: "",
     designation: "Medical Representative",
-    division: "Cardio Diabetes",
-    territory: "Chennai",
+    division: "",
+    territory: "",
     role: "MR" as Employee["role"],
     status: "ACTIVE" as Employee["status"],
     password: "zivira123"
@@ -71,7 +71,7 @@ export function ManagerTeamList() {
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1.5">
                 <span className="text-slate-300 dark:text-slate-600">•</span>
-                Cardiological & Diabetic Divisions
+                My Team
               </span>
             </div>
             <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-2">&nbsp;Team Management</h1>
@@ -119,7 +119,7 @@ export function ManagerTeamList() {
             <div className="my-2 flex items-baseline gap-2">
               <span className="text-xl md:text-2xl font-extrabold text-emerald-900 dark:text-emerald-400 tracking-tight">{activeCount} Reps</span>
             </div>
-            <p className="text-[11px] text-emerald-700 dark:text-emerald-500 font-semibold">{activePercent}% Today&apos;s Check-in Logged</p>
+            <p className="text-[11px] text-emerald-700 dark:text-emerald-500 font-semibold">{activePercent}% of team marked active</p>
           </div>
 
           <div className="bg-slate-50/70 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl p-4 border border-slate-200/70 dark:border-slate-800 transition-all flex flex-col justify-between">

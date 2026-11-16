@@ -216,10 +216,10 @@ export function ManagerVisitCoverage() {
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200/70">Verified</span>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums">98.2%</span>
+            <span className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums">—</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 truncate">
-            Geofence logged validation rate
+            Shown per DCR in the approval screen
           </div>
         </div>
       </section>

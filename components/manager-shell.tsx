@@ -211,10 +211,6 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
 
         {/* Quick Actions */}
         <div className="flex items-center space-x-3">
-          <button type="button" className="hidden sm:inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-brand-700 bg-brand-50 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50 transition-colors border border-brand-200 dark:border-brand-800">
-            <Megaphone size={14} className="mr-1.5" />
-            Broadcast Alert
-          </button>
           
           <div className="relative">
             <button

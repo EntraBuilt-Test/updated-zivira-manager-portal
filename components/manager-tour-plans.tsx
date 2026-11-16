@@ -275,15 +275,15 @@ export function ManagerTourPlans() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Planned Coverage</span>
             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 font-mono text-[10px] font-semibold">
-              +2.4% vs tgt
+              Not tracked yet
             </span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">96.8%</span>
+            <span className="text-2xl font-bold text-slate-900 dark:text-white">—</span>
           </div>
           <div className="w-full flex flex-col gap-1">
             <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-              <div className="h-full rounded-full bg-emerald-600" style={{ width: "96.8%" }}></div>
+              <div className="h-full rounded-full bg-emerald-600" style={{ width: "0%" }}></div>
             </div>
           </div>
         </div>
