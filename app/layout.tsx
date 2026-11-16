@@ -3,7 +3,7 @@ import "./globals.css";
 import { WakingBanner } from "@/components/waking-banner";
 
 export const metadata: Metadata = {
-  title: "Zivira Labs Company Admin",
+  title: "Zivira Labs Manager Portal",
   description: "Tenant administration portal for Zivira Labs"
 };
 

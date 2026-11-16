@@ -93,6 +93,29 @@ export function ManagerDashboardPanel() {
     () => new Set(teamDcrs.filter(d => d.visitDate?.slice(0, 10) === todayStr).map(d => d.employeeCode)),
     [teamDcrs, todayStr]
   );
+  // QA-12 (Nov 2026): replace fixed demo figures with numbers worked out
+  // from the team roster and the team's real DCR feed.
+  const liveStats = useMemo(() => {
+    const team = data?.team ?? [];
+    const territories = new Set(team.map(e => e.territory)).size;
+    const todays = teamDcrs.filter(d => d.visitDate?.slice(0, 10) === todayStr);
+    const callsByRep = new Map<string, number>();
+    for (const d of todays) callsByRep.set(d.employeeCode, (callsByRep.get(d.employeeCode) ?? 0) + 1);
+    const repsFiled = team.filter(e => callsByRep.has(e.employeeCode)).length;
+    const coveragePct = team.length ? Math.round((repsFiled / team.length) * 100) : 0;
+    const latest = [...teamDcrs].sort((a, b) => String(b.createdAt ?? b.visitDate ?? "").localeCompare(String(a.createdAt ?? a.visitDate ?? "")))[0];
+    const doc = latest ? (latest as unknown as { doctorId?: { name?: string; specialty?: string } | string }).doctorId : undefined;
+    const latestDoctor = doc && typeof doc === "object" ? `${doc.name ?? ""}${doc.specialty ? ` (${doc.specialty})` : ""}` : "";
+    const latestRep = latest ? (team.find(e => e.employeeCode === latest.employeeCode)?.name ?? latest.employeeName ?? latest.employeeCode) : "";
+    return { territories, callsByRep, repsFiled, coveragePct, todaysCount: todays.length, latest, latestDoctor, latestRep };
+  }, [data, teamDcrs, todayStr]);
+  function timeAgo(value?: string | null) {
+    if (!value) return "";
+    const mins = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.round(mins / 60);
+    return hrs < 24 ? `${hrs} h ago` : `${Math.round(hrs / 24)} d ago`;
+  }
   const territoryOptions = useMemo(
     () => Array.from(new Set((data?.team ?? []).map(e => e.territory))).sort(),
     [data]
@@ -154,12 +177,9 @@ export function ManagerDashboardPanel() {
           </div>
           <div className="mt-3 flex items-baseline space-x-2">
             <span className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{data?.stats.teamSize ?? "—"}</span>
-            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center">
-              +1 Onboarding
-            </span>
           </div>
           <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-            Assigned across 4 HQ territories
+            Assigned across {liveStats.territories} HQ {liveStats.territories === 1 ? "territory" : "territories"}
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
         </div>
@@ -198,7 +218,7 @@ export function ManagerDashboardPanel() {
             ) : null}
           </div>
           <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-            2 Tour Plans · 1 Expense Claim
+            Open Team DCRs, Tour Plans and Expense Claims to act
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500"></div>
         </div>
@@ -216,7 +236,7 @@ export function ManagerDashboardPanel() {
             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Validated</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-            Last approval 18m ago
+            Decisions recorded today
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
         </div>
@@ -224,21 +244,20 @@ export function ManagerDashboardPanel() {
         {/* Card 5: Visit Coverage Progress Gauge */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden group hover:border-brand-500/50 transition flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>VISIT COVERAGE</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold">84%</span>
+            <span>REPS REPORTED TODAY</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{liveStats.coveragePct}%</span>
           </div>
           <div className="mt-3">
             <div className="flex justify-between items-baseline mb-1">
-              <span className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">32 / 38</span>
-              <span className="text-[11px] text-slate-400 font-medium">Calls logged</span>
+              <span className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{liveStats.repsFiled} / {data?.team?.length ?? 0}</span>
+              <span className="text-[11px] text-slate-400 font-medium">{liveStats.todaysCount} calls logged</span>
             </div>
             <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-              <div className="bg-gradient-to-r from-teal-500 to-emerald-500 h-2 rounded-full transition-all duration-500" style={{ width: "84%" }}></div>
+              <div className="bg-gradient-to-r from-teal-500 to-emerald-500 h-2 rounded-full transition-all duration-500" style={{ width: `${liveStats.coveragePct}%` }}></div>
             </div>
           </div>
           <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between">
-            <span>Daily target: 80%</span>
-            <span className="text-emerald-600 font-semibold">+4% above pace</span>
+            <span>Reps with at least one DCR today</span>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-brand-500"></div>
         </div>
@@ -255,7 +274,11 @@ export function ManagerDashboardPanel() {
         </div>
         <div className="flex-1 overflow-hidden h-6 text-slate-600 dark:text-slate-300 flex items-center">
           <span className="truncate transition-opacity duration-300">
-            📍 <strong>Rahul Deshmukh</strong> visited <strong>Dr. R. Venkat (Cardiology)</strong> at Apollo Greams Rd, Chennai · <span className="text-slate-400">12 min ago</span> · Call feedback: &quot;Sample given - Lipicure 20&quot;
+            {liveStats.latest ? (
+              <>📍 <strong>{liveStats.latestRep}</strong> logged a call{liveStats.latestDoctor ? <> with <strong>{liveStats.latestDoctor}</strong></> : null} · <span className="text-slate-400">{timeAgo(liveStats.latest.createdAt ?? liveStats.latest.visitDate)}</span>{liveStats.latest.status ? ` · ${String(liveStats.latest.status).replace(/_/g, " ")}` : ""}</>
+            ) : (
+              <>No calls logged by your team yet.</>
+            )}
           </span>
         </div>
         <div className="flex items-center space-x-2 text-[11px] text-slate-400">
@@ -342,11 +365,10 @@ export function ManagerDashboardPanel() {
                   <td className="py-3.5 px-4">
                     <div className="w-full max-w-[140px]">
                       <div className="flex justify-between text-[11px] mb-1">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">6 / 8 Drs</span>
-                        <span className="text-emerald-600 font-semibold">75%</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{liveStats.callsByRep.get(emp.employeeCode) ?? 0} calls today</span>
                       </div>
                       <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: "75%" }}></div>
+                        <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, (liveStats.callsByRep.get(emp.employeeCode) ?? 0) * 12.5)}%` }}></div>
                       </div>
                     </div>
                   </td>
