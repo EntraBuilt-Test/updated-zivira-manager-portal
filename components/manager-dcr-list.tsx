@@ -259,7 +259,7 @@ export function ManagerDcrList() {
           <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total DCRs</div>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-xl font-bold text-slate-900 dark:text-white tabular-nums">{dcrs.length}</span>
-            <span className="text-[10px] text-emerald-600 font-semibold">100% rep submit</span>
+            <span className="text-[10px] text-emerald-600 font-semibold">{new Set(dcrs.map(d => d.employeeCode)).size} reps</span>
           </div>
         </div>
         <div className="bg-amber-50/50 dark:bg-amber-900/10 p-3.5 rounded-xl border border-amber-200/80 dark:border-amber-800/50 shadow-sm">
@@ -283,7 +283,7 @@ export function ManagerDcrList() {
           <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Joint Work Calls</div>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-xl font-bold text-indigo-700 dark:text-indigo-400 tabular-nums">{dcrs.filter(d => d.jointWork?.accompanyingManager).length}</span>
-            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">ABM-001</span>
+            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">with manager</span>
           </div>
         </div>
         <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/80 dark:border-slate-800 shadow-sm">
@@ -298,8 +298,8 @@ export function ManagerDcrList() {
         <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/80 dark:border-slate-800 shadow-sm">
           <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Doctor Coverage</div>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-xl font-bold text-slate-900 dark:text-white tabular-nums">100%</span>
-            <span className="text-[10px] text-emerald-600 font-semibold">On Target</span>
+            <span className="text-xl font-bold text-slate-900 dark:text-white tabular-nums">{new Set(dcrs.map(d => getDoctorName(d.doctorId) || (typeof d.doctorId === "string" ? d.doctorId : "")).filter(Boolean)).size}</span>
+            <span className="text-[10px] text-emerald-600 font-semibold">doctors visited</span>
           </div>
         </div>
       </div>
@@ -370,7 +370,7 @@ export function ManagerDcrList() {
                       </div>
                     </td>
                     <td className="py-3.5 px-3">
-                      <div className="font-semibold text-slate-900 dark:text-white">{getDoctorName(dcr.doctorId) || "—"}</div>
+                      <div className="font-semibold text-slate-900 dark:text-white">{getDoctorName(dcr.doctorId) || dcr.hospitalClinic || "Doctor record removed"}</div>
                       <div className="text-[10px] text-slate-400 flex items-center gap-1">
                         <span>Clinic/Hospital</span>
                       </div>

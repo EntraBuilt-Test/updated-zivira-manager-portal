@@ -160,10 +160,10 @@ export function ManagerTeamList() {
               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-50 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800/50">Active</span>
             </div>
             <div className="my-2 flex items-baseline gap-2">
-              <span className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">&mdash;</span>
+              <span className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">{team.reduce((a, e) => a + ((e as unknown as { doctorCount?: number }).doctorCount ?? 0), 0).toLocaleString("en-IN")}</span>
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">HCPs</span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Per-rep doctor mapping not available in this portal yet</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Doctors mapped across your team (per rep in the table below)</p>
           </div>
         </div>
       </section>
@@ -331,6 +331,7 @@ export function ManagerTeamList() {
                     <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold">
                       {emp.territory}
                     </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">{(emp as unknown as { doctorCount?: number }).doctorCount ?? 0} doctors mapped</div>
                   </td>
                   <td className="py-3.5 px-4">
                     {emp.status === "ACTIVE" ? (
