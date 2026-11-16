@@ -9,8 +9,8 @@ import { apiClient, setToken } from "@/lib/api-client";
 export function ManagerLoginForm() {
   const router = useRouter();
   useEffect(() => { void apiClient.warmUp(); }, []);
-  const [username, setUsername] = useState("abm-001");
-  const [password, setPassword] = useState("Zivirachennai");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 

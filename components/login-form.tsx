@@ -8,8 +8,8 @@ import { apiClient, setToken } from "@/lib/api-client";
 export function LoginForm() {
   const router = useRouter();
   useEffect(() => { void apiClient.warmUp(); }, []);
-  const [username, setUsername] = useState("adminzivira");
-  const [password, setPassword] = useState("ziviramumbai");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
